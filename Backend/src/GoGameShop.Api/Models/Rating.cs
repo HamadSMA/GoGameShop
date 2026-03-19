@@ -1,5 +1,3 @@
-using System;
-
 namespace GoGameShop.Api.Models;
 
 public class Rating
