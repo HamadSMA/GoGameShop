@@ -6,4 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="Features/Games/CreateGame/" />
+    <Folder Include="Features/Games/GetGames/" />
+  </ItemGroup>
+
 </Project>
