@@ -1,7 +1,3 @@
-using System;
-using GoGameShop.Api.Data;
-using GoGameShop.Api.Models;
-
 namespace GoGameShop.Api.Features.Genres;
 
 public static class GetGenresEndpoint

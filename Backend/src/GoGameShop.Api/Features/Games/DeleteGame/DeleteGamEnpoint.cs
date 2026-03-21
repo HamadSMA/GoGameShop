@@ -1,6 +1,3 @@
-using System;
-using GoGameShop.Api.Data;
-
 namespace GoGameShop.Api.Features.Games.DeleteGame;
 
 public static class DeleteGameEnpoint

@@ -1,7 +1,3 @@
-using System;
-using GoGameShop.Api.Models;
-using GoGameShop.Api.Data;
-
 namespace GoGameShop.Api.Features.Games.GetGame;
 
 public static class GetGameEndpoint
@@ -23,6 +19,6 @@ public static class GetGameEndpoint
                 game.Description
                 )
             );
-        }).WithName("GetGame");
+        }).WithName(EndpointNames.GetGame);
     }
 }

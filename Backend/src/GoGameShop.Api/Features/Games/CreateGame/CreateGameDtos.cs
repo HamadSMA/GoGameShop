@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using GoGameShop.Api.Models;
-
 namespace GoGameShop.Api.Features.Games.CreateGame;
 
 public record CreateGameDto(

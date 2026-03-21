@@ -1,6 +1,3 @@
-using System;
-using GoGameShop.Api.Data;
-
 namespace GoGameShop.Api.Features.Ratings;
 
 public static class GetRatingsEndpoint

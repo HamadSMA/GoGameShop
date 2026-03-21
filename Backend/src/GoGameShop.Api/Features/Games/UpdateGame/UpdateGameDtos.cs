@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 namespace GoGameShop.Api.Features.Games.UpdateGame;
 
 public record UpdateGameDto(

@@ -1,10 +1,3 @@
-using GoGameShop.Api.Features.Games.GetGame;
-using GoGameShop.Api.Features.Games.GetGames;
-using GoGameShop.Api.Data;
-using GoGameShop.Api.Features.Games;
-using GoGameShop.Api.Features.Genres;
-using GoGameShop.Api.Features.Ratings;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddValidation();

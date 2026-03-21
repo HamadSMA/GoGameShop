@@ -1,5 +1,3 @@
-using System.Diagnostics.Tracing;
-using GoGameShop.Api.Models;
 namespace GoGameShop.Api.Data;
 
 public class GoGameShopData

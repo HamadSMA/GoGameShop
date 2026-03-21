@@ -1,6 +1,3 @@
-using System;
-using GoGameShop.Api.Data;
-using GoGameShop.Api.Models;
 namespace GoGameShop.Api.Features.Games.GetGames;
 
 public static class GetGamesEndpoint
