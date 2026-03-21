@@ -4,9 +4,9 @@ public class Game
 {
     public Guid Id { get; set; }
     public required string Name { get; set; }
-    public Genre Genre { get; set; } = null!;
+    public Genre? Genre { get; set; }
     public Guid GenreId { get; set; }
-    public Rating Rating { get; set; } = null!;
+    public Rating? Rating { get; set; }
     public Guid RatingId { get; set; }
     public DateOnly ReleaseDate { get; set; }
     public decimal Price { get; set; }

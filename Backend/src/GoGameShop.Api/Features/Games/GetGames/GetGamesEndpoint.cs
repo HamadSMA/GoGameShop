@@ -8,8 +8,8 @@ public static class GetGamesEndpoint
         app.MapGet("/", (GoGameShopData data) => data.GetGames.Select(game => new GameSummaryDto(
             game.Id,
             game.Name,
-            game.GenreId,
-            game.RatingId,
+            game.Genre!.Name,
+            game.Rating!.Name,
             game.Price,
             game.ReleaseDate
         )));

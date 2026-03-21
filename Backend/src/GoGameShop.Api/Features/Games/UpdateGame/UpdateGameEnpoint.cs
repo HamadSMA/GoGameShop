@@ -32,9 +32,9 @@ public static class UpdateGameEnpoint
 
             game.Name = gameDto.Name;
             game.Genre = genre;
-            game.GenreId = genre.GenreId;
+            game.GenreId = genre.Id;
             game.Rating = rating;
-            game.RatingId = rating.RatingId;
+            game.RatingId = rating.Id;
             game.ReleaseDate = gameDto.ReleaseDate;
             game.Price = gameDto.Price;
             game.Description = gameDto.Description;

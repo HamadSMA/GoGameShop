@@ -24,9 +24,9 @@ public static class CreateGameEnpoint
             {
                 Name = gameDto.Name,
                 Genre = genre,
-                GenreId = gameDto.GenreId,
+                GenreId = genre.Id,
                 Rating = rating,
-                RatingId = gameDto.RatingId,
+                RatingId = rating.Id,
                 ReleaseDate = gameDto.ReleaseDate,
                 Price = gameDto.Price,
                 Description = gameDto.Description
