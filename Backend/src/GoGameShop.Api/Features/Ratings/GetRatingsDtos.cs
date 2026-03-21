@@ -1,7 +1,7 @@
 namespace GoGameShop.Api.Features.Ratings;
 
-public record GetRatingsDto(
-    Guid Id,
+public record GameRatingsDto(
+    Guid RatingsId,
     string Name
 );
 

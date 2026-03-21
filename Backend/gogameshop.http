@@ -1,1 +1,35 @@
-GET http://localhost:5078
+
+GET http://localhost:5078/games
+###
+GET http://localhost:5078/games/342d86fb-fc22-4668-b17b-86dab6d03657
+###
+GET http://localhost:5078/genres
+###
+GET http://localhost:5078/ratings
+###
+DELETE http://localhost:5078/games/021ac71d-9753-4c18-9ec9-d7e05b7c0d1a
+###
+POST http://localhost:5078/games/
+Content-Type: application/json
+
+{
+    "name": "Final Fantasy 7 Remake",
+    "genreId": "935b4ae6-f3a3-442e-b984-32dc6ef7daf9",
+    "ratingId": "31ed9d0e-21c0-48ad-a305-2159bdd5e241",
+    "releaseDate": "2020-04-10",
+    "price": 40.99,
+    "description": "Final Fantasy VII Remake is a modern reimagining of the 1997 PlayStation classic."
+}
+
+###
+PUT http://localhost:5078/games/342d86fb-fc22-4668-b17b-86dab6d03657
+Content-Type: application/json
+
+{   "name": "Final Fantasy 7 Snake",
+    "genreId": "935b4ae6-f3a3-442e-b984-32dc6ef7daf9",
+    "ratingId": "a15fb383-11fa-4658-8e52-e591d545e46e",
+    "releaseDate": "2023-04-10",
+    "price": 33.33,
+    "description": "Final Fantasy VII Remake is a modern reimagining of the 1997 PlayStation classic."
+    }
+
