@@ -1,4 +1,9 @@
+using System.Reflection.Metadata;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
+builder.Services.AddSqlite<GoGameShopContext>(connectionString);
 
 builder.Services.AddValidation();
 builder.Services.AddSingleton<GoGameShopData>();

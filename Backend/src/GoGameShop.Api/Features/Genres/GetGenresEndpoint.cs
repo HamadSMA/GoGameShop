@@ -9,7 +9,7 @@ public static class GetGenresEndpoint
             var genres = data.GetGenres;
 
             return Results.Ok(genres.Select(genre => new GameGenres(
-            genre.GenreId,
+            genre.Id,
             genre.Name)));
         });
     }

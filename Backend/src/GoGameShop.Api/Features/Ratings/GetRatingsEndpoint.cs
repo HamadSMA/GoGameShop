@@ -9,7 +9,7 @@ public static class GetRatingsEndpoint
             var ratings = data.GetRatings;
             
             return Results.Ok(ratings.Select(rating => new GameRatingsDto(
-                rating.RatingId,
+                rating.Id,
                 rating.Name
                 )));
 
