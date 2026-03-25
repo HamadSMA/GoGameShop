@@ -1,6 +1,6 @@
 namespace GoGameShop.Api.Features.Games;
 
-public static class GamesEnpoints
+public static class GamesEndpoints
 {
     public static void MapGames(this IEndpointRouteBuilder app)
     {

@@ -9,7 +9,7 @@ public record CreateGameDto(
     [Required][StringLength(500)] string Description
 );
 
-public record GemeDetailsDto(
+public record GameDetailsDto(
     Guid Id,
     string Name,
     Guid GenreId,

@@ -1,14 +1,14 @@
 namespace GoGameShop.Api.Features.Games.CreateGame;
 
-public static class CreateGameEnpoint
+public static class CreateGameEndpoint
 {
     public static void MapCreateGame(this IEndpointRouteBuilder app)
     {
         // POST /games
         app.MapPost("/", (GoGameShopData data, CreateGameDto gameDto) =>
         {
-            Genre? genre = data.GetGenre(gameDto.GenreId);
-            Rating? rating = data.GetRating(gameDto.RatingId);
+            var genre = data.GetGenre(gameDto.GenreId);
+            var rating = data.GetRating(gameDto.RatingId);
             if (genre is null)
             {
                 return Results.BadRequest("Invalid genre id");
@@ -38,8 +38,8 @@ public static class CreateGameEnpoint
                 game.Name,
                 game.GenreId,
                 game.RatingId,
-                game.Price,
                 game.ReleaseDate,
+                game.Price,
                 game.Description
             ));
         });

@@ -1,13 +1,13 @@
 
 GET http://localhost:5078/games
 ###
-GET http://localhost:5078/games/342d86fb-fc22-4668-b17b-86dab6d03657
+GET http://localhost:5078/games/af45b776-3781-4880-b28a-20e5d65f6b1b
 ###
 GET http://localhost:5078/genres
 ###
 GET http://localhost:5078/ratings
 ###
-DELETE http://localhost:5078/games/021ac71d-9753-4c18-9ec9-d7e05b7c0d1a
+DELETE http://localhost:5078/games/af45b776-3781-4880-b28a-20e5d65f6b1b
 ###
 POST http://localhost:5078/games/
 Content-Type: application/json
@@ -22,7 +22,7 @@ Content-Type: application/json
 }
 
 ###
-PUT http://localhost:5078/games/342d86fb-fc22-4668-b17b-86dab6d03657
+PUT http://localhost:5078/games/dafa23cb-b811-4764-8774-f34df6dbe892
 Content-Type: application/json
 
 {   "name": "Final Fantasy 7 Snake",

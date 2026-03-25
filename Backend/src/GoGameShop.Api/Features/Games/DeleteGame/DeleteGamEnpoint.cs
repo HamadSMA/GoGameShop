@@ -1,6 +1,6 @@
 namespace GoGameShop.Api.Features.Games.DeleteGame;
 
-public static class DeleteGameEnpoint
+public static class DeleteGameEndpoint
 {
     public static void MapDeleteGame(this IEndpointRouteBuilder app)
     {

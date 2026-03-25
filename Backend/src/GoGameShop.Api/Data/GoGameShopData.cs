@@ -79,7 +79,7 @@ public class GoGameShopData
     public IEnumerable<Rating> GetRatings => ratings;
     public Game? GetGame(Guid id) => games.Find(game => game.Id == id);
     public Genre? GetGenre(Guid id) => genres.Find(genre => genre.Id == id);
-    public Rating? GetRating(Guid id) => ratings.Find(ratings => ratings.Id == id);
+    public Rating? GetRating(Guid id) => ratings.Find(rating => rating.Id == id);
     public void AddGame(Game game)
     {
         game.Id = Guid.NewGuid();

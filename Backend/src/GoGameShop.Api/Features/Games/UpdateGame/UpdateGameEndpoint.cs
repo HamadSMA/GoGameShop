@@ -4,7 +4,7 @@ using GoGameShop.Api.Models;
 
 namespace GoGameShop.Api.Features.Games.UpdateGame;
 
-public static class UpdateGameEnpoint
+public static class UpdateGameEndpoint
 {
     public static void MapUpdateGame(this IEndpointRouteBuilder app)
     {
