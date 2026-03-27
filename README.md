@@ -95,12 +95,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Roadmap
 
-The project is actively under development. Planned features include:
-
-- **Security:** JWT Authentication and HTTPS hardening.
-- **Frontend:** Responsive Frontend development.
-- **Payments:** Stripe integration for secure game key purchases.
-- **Infrastructure:** PostgreSQL migration, Containerization (Docker), and Azure Cloud deployment.
-- **Architecture:** Middleware integration and Background Services.
-- **CI/CD:** Automated deployment pipelines.
-- **Testing:** Comprehensive Integration testing.
+```
+▓▓▓▓▓▓▓▓▓▓  REST API, CRUD, DTOs, EF Core, SQLite, Vertical Slice Architecture
+░░░░░░░░░░  Async/Await, Logging, Middleware, Error Handling, Pagination, OpenAPI
+░░░░░░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
+░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
+░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire
+░░░░░░░░░░  Stripe Payments, Service Bus, Outbox Pattern, Background Workers
+░░░░░░░░░░  Integration Testing, CI/CD Pipelines
+```
