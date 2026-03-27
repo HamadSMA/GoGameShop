@@ -22,14 +22,14 @@ Content-Type: application/json
 }
 
 ###
-PUT http://localhost:5078/games/dafa23cb-b811-4764-8774-f34df6dbe892
+PUT http://localhost:5078/games/184E8E4B-5BF6-4A0D-A0C5-3276FAA37AE7
 Content-Type: application/json
 
-{   "name": "Final Fantasy 7 Snake",
-    "genreId": "935b4ae6-f3a3-442e-b984-32dc6ef7daf9",
-    "ratingId": "a15fb383-11fa-4658-8e52-e591d545e46e",
-    "releaseDate": "2023-04-10",
-    "price": 33.33,
-    "description": "Final Fantasy VII Remake is a modern reimagining of the 1997 PlayStation classic."
+{   "name": "Metal Gear Solid V: The Phantom Pain",
+    "genreId": "E6494624-CF4A-45D1-BDAF-732A6701613E",
+    "ratingId": "0F68F55F-63BD-47BC-9D1C-79DE62E0C98C",
+    "releaseDate": "2015-09-01",
+    "price": 60.99,
+    "description": "Metal Gear Solid V: The Phantom Pain is an action-adventure stealth game developed by Kojima Productions and published by Konami. It was released in 2015 for PlayStation 3, PlayStation 4, Xbox 360, Xbox One, and Microsoft Windows."
     }
 
