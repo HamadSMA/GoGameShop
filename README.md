@@ -1,6 +1,15 @@
 # GoGameShop (In Progress)
 
 A production-ready game store API for selling digital game keys. Built with the modern .NET stack, focusing on clean architecture and minimal API patterns.
+
+---
+
+> **AI Disclosure** — Source code is 100% handwritten. Commit messages are AI-generated. Docs and notes are collaborative — AI-assisted, personally reviewed, and edited.
+
+📓 **Dev Notes** — Running notes I take while building this project. [View notes →](./NOTES.md)
+
+---
+
 ## Overview
 
 GoGameShop is a backend service designed to manage a catalog of digital games, including features for browsing genres, ratings, and managing game details (CRUD operations). It leverages the latest .NET features to provide a performant and scalable foundation.
