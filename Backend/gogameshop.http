@@ -7,13 +7,13 @@ GET http://localhost:5078/genres
 ###
 GET http://localhost:5078/ratings
 ###
-DELETE http://localhost:5078/games/af45b776-3781-4880-b28a-20e5d65f6b1b
+DELETE http://localhost:5078/games/1D0AB9C5-9D14-441D-9BD0-FF356E568BA6
 ###
 POST http://localhost:5078/games/
 Content-Type: application/json
 
 {
-    "name": "Final Fantasy 7 Remake",
+    "name": "Final Fantasy 7 Snake Eater",
     "genreId": "2F77B8B2-2CA7-4DAB-A048-952955FBF10F",
     "ratingId": "4A386C1B-7F13-45FC-9843-B3EEDCF674D7",
     "releaseDate": "2020-04-10",
@@ -25,11 +25,12 @@ Content-Type: application/json
 PUT http://localhost:5078/games/184E8E4B-5BF6-4A0D-A0C5-3276FAA37AE7
 Content-Type: application/json
 
-{   "name": "Metal Gear Solid V: The Phantom Pain",
+{   
+  "name": "Metal Gear Solid V: The Phantom Pain",
     "genreId": "E6494624-CF4A-45D1-BDAF-732A6701613E",
     "ratingId": "0F68F55F-63BD-47BC-9D1C-79DE62E0C98C",
     "releaseDate": "2015-09-01",
     "price": 60.99,
     "description": "Metal Gear Solid V: The Phantom Pain is an action-adventure stealth game developed by Kojima Productions and published by Konami. It was released in 2015 for PlayStation 3, PlayStation 4, Xbox 360, Xbox One, and Microsoft Windows."
-    }
+}
 
