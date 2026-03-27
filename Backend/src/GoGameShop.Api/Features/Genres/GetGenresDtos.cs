@@ -1,6 +1,6 @@
 namespace GoGameShop.Api.Features.Genres;
 
-public record GameGenres(
+public record GameGenresDto(
     Guid GenreId,
     string Name
 );
