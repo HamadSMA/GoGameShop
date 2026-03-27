@@ -1,0 +1,134 @@
+## .NET / ASP.NET Core
+.env
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nuget.props
+*.nuget.targets
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.binlog
+
+## JetBrains Rider
+.idea/
+*.sln.iml
+*.DotSettings.user
+
+## ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+## Coverage & testing tools
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+BenchmarkDotNet.Artifacts/
+nunit-*.xml
+TestResult.xml
+*.VisualState.xml
+OpenCover/
+
+## User-specific / generated files
+*.user
+*.suo
+*.userprefs
+*.rsuser
+*.userosscache
+*.sln.docstates
+ScaffoldingReadMe.txt
+Generated\ Files/
+Generated_Code/
+FakesAssemblies/
+
+## Tye
+.tye/
+
+## Publish & deploy
+*.[Pp]ublish.xml
+*.azurePubxml
+*.pubxml
+*.publishproj
+PublishScripts/
+publish/
+csx/
+*.build.csdef
+ecf/
+rcf/
+
+## SQL / database
+*.mdf
+*.ldf
+*.ndf
+healthchecksdb
+
+## Local tool caches
+.fake/
+.paket/paket.exe
+paket-files/
+MigrationBackup/
+.localhistory/
+.mfractor/
+
+## Personal notes / case study (not for version control)
+case-study.md
+
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+## Windows
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+## Vim
+*.swp
