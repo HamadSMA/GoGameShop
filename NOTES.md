@@ -7,37 +7,52 @@
 
 ## Table of Contents
 
-1. [ASP.NET Core & Minimal APIs](#1-aspnet-core--minimal-apis)
-2. [Program.cs — The Entry Point](#2-programcs--the-entry-point)
-3. [The .csproj File — Project Configuration](#3-the-csproj-file--project-configuration)
-4. [appsettings.json — App Configuration](#4-appsettingsjson--app-configuration)
-5. [Global Usings](#5-global-usings)
-6. [Models & Entities](#6-models--entities)
-7. [Entity Framework Core (EF Core)](#7-entity-framework-core-ef-core)
-8. [DbContext](#8-dbcontext)
-9. [Database Migrations](#9-database-migrations)
-10. [Database Seeding](#10-database-seeding)
-11. [Extension Methods](#11-extension-methods)
-12. [Dependency Injection](#12-dependency-injection)
-13. [Route Groups](#13-route-groups)
-14. [DTOs (Data Transfer Objects)](#14-dtos-data-transfer-objects)
-15. [C# Records](#15-c-records)
-16. [Data Annotations & Validation](#16-data-annotations--validation)
-17. [CRUD Endpoints](#17-crud-endpoints)
-18. [HTTP Status Codes & Results](#18-http-status-codes--results)
-19. [AsNoTracking](#19-asnotracking)
-20. [ExecuteDelete](#20-executedelete)
-21. [Include (Eager Loading)](#21-include-eager-loading)
-22. [Vertical Slice Architecture](#22-vertical-slice-architecture)
-23. [Constants & Named Endpoints](#23-constants--named-endpoints)
-24. [CreatedAtRoute](#24-createdatroute)
-25. [launchSettings.json](#25-launchsettingsjson)
-26. [Async/Await](#26-asyncawait)
-27. [The Task Type](#27-the-task-type)
-28. [ValueTask & .AsTask()](#28-valuetask--astask)
-29. [ContinueWith](#29-continuewith)
+**Project Setup & Configuration**
+- [1. ASP.NET Core & Minimal APIs](#1-aspnet-core--minimal-apis)
+- [2. Program.cs — The Entry Point](#2-programcs--the-entry-point)
+- [30. WebApplication & WebApplicationBuilder](#30-webapplication--webapplicationbuilder)
+- [3. The .csproj File — Project Configuration](#3-the-csproj-file--project-configuration)
+- [4. appsettings.json — App Configuration](#4-appsettingsjson--app-configuration)
+- [31. Logging](#31-logging)
+- [5. Global Usings](#5-global-usings)
+- [25. launchSettings.json](#25-launchsettingsjson)
+
+**Data & EF Core**
+- [6. Models & Entities](#6-models--entities)
+- [7. Entity Framework Core (EF Core)](#7-entity-framework-core-ef-core)
+- [8. DbContext](#8-dbcontext)
+- [9. Database Migrations](#9-database-migrations)
+- [10. Database Seeding](#10-database-seeding)
+- [19. AsNoTracking](#19-asnotracking)
+- [20. ExecuteDelete](#20-executedelete)
+- [21. Include (Eager Loading)](#21-include-eager-loading)
+
+**API Design**
+- [13. Route Groups](#13-route-groups)
+- [14. DTOs (Data Transfer Objects)](#14-dtos-data-transfer-objects)
+- [16. Data Annotations & Validation](#16-data-annotations--validation)
+- [17. CRUD Endpoints](#17-crud-endpoints)
+- [18. HTTP Status Codes & Results](#18-http-status-codes--results)
+- [23. Constants & Named Endpoints](#23-constants--named-endpoints)
+- [24. CreatedAtRoute](#24-createdatroute)
+
+**C# Language & Patterns**
+- [11. Extension Methods](#11-extension-methods)
+- [12. Dependency Injection](#12-dependency-injection)
+- [15. C# Records](#15-c-records)
+- [32. Delegates, Func & Action](#32-delegates-func--action)
+- [33. Generics](#33-generics)
+- [22. Vertical Slice Architecture](#22-vertical-slice-architecture)
+
+**Async Programming**
+- [26. Async/Await](#26-asyncawait)
+- [27. The Task Type](#27-the-task-type)
+- [28. ValueTask & .AsTask()](#28-valuetask--astask)
+- [29. ContinueWith](#29-continuewith)
 
 ---
+
+## Project Setup & Configuration
 
 ## 1. ASP.NET Core & Minimal APIs
 *March 17, 2026*
@@ -83,6 +98,63 @@ app.Run();               // Start the server
 The two phases are:
 - **Builder phase** (`builder.Services.*`): Register services into the DI container
 - **App phase** (`app.*`): Configure the pipeline and run
+
+---
+
+## 30. WebApplication & WebApplicationBuilder
+*March 17, 2026*
+
+**What they are:**
+`WebApplicationBuilder` is the object returned by `WebApplication.CreateBuilder(args)`. It's where you configure everything *before* the app starts — services, logging, configuration sources. Once you call `builder.Build()`, you get back a `WebApplication`, which is the running app itself.
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);  // WebApplicationBuilder
+// ... register services on builder ...
+var app = builder.Build();                         // WebApplication
+// ... map routes on app ...
+app.Run();
+```
+
+**Why this two-object pattern exists:**
+The separation is intentional. The builder phase is for *registration* — you're telling the DI container what exists. The app phase is for *usage* — you're consuming those registrations to configure the pipeline. Mixing the two would make it easy to accidentally use services before they're fully configured.
+
+**What `WebApplication.CreateBuilder()` preconfigures for you:**
+Calling `CreateBuilder()` is not a blank slate — it sets up a large number of defaults so you don't have to:
+
+| Default | What it does |
+|---------|-------------|
+| **Kestrel HTTP server** | The built-in web server that listens for HTTP requests. No IIS or external server needed. |
+| **Configuration system** | Loads config in priority order: `appsettings.json` → `appsettings.{Environment}.json` → environment variables → command-line args. Later sources override earlier ones. |
+| **Logging** | Sets up logging to the Console and Debug output, with log levels read from `appsettings.json`. |
+| **DI container** | Initializes `builder.Services` (an `IServiceCollection`) — the registry for all your app's dependencies. |
+| **Environment detection** | Reads the `ASPNETCORE_ENVIRONMENT` variable and exposes it as `builder.Environment`. Drives which appsettings file is loaded and whether developer tools are on. |
+| **Content root** | Sets the working directory for the app (where it looks for files like `appsettings.json`). Defaults to the directory the app runs from. |
+
+**Accessing these defaults:**
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration   // Read config values
+builder.Services        // Register services into DI
+builder.Logging         // Configure logging providers
+builder.Environment     // Check IsDevelopment(), IsProduction(), etc.
+builder.Host            // Configure the underlying host
+builder.WebHost         // Configure Kestrel / web server settings
+```
+
+**After `Build()`**, the `WebApplication` object (`app`) doubles as both the app and the middleware pipeline:
+
+```csharp
+var app = builder.Build();
+
+app.Services            // Resolve services from the DI container
+app.Configuration       // Access config (same as builder.Configuration)
+app.Environment         // Access environment info
+app.MapGet(...)         // Register routes
+app.Use(...)            // Add middleware
+app.Run()               // Start listening for requests
+```
 
 ---
 
@@ -134,7 +206,81 @@ builder.Configuration.GetConnectionString("GoGameShop")
 
 This tells EF Core to use a SQLite database file named `GoGameShop.db` in the project directory.
 
-`appsettings.Development.json` overrides settings specifically for the Development environment, keeping sensitive production settings separate.
+`appsettings.Development.json` overrides settings specifically for the Development environment, keeping sensitive production settings separate. In this project, the connection string and `AllowedHosts` live in `appsettings.Development.json` rather than `appsettings.json` — they are development-only values that shouldn't be in a base config that production might inherit.
+
+**Controlling EF Core SQL output:**
+By default, EF Core logs every SQL statement it runs. That's noisy during development. You can silence it by setting its log level to `Warning` in `appsettings.Development.json`:
+```json
+"Logging": {
+  "LogLevel": {
+    "Microsoft.EntityFrameworkCore.Database.Command": "Warning"
+  }
+}
+```
+
+---
+
+## 31. Logging
+*March 29, 2026*
+
+**What it is:**
+ASP.NET Core has a built-in logging system. You inject an `ILogger<T>` into any class or endpoint and call methods like `LogInformation()`, `LogWarning()`, or `LogError()` to write log messages. `WebApplicationBuilder` sets this up automatically — you don't need to configure anything to get started.
+
+**Why it's used:**
+`Console.WriteLine` has no log level, no filtering, no structured output, and no way to route messages to different destinations (file, cloud, monitoring tools). The built-in logger does all of that, and is replaceable with third-party providers (Serilog, NLog, etc.) without changing the calling code.
+
+**How it fits — injecting into an endpoint:**
+```csharp
+app.MapPost("/", async (
+    GoGameShopContext dbContext,
+    CreateGameDto gameDto,
+    ILogger<Program> logger) =>       // Injected just like DbContext
+{
+    // ... create game ...
+
+    logger.LogInformation("Created Game {GameName} with price {GamePrice}",
+        game.Name,
+        game.Price);
+});
+```
+
+The `{GameName}` and `{GamePrice}` placeholders are **structured logging** — the logger stores `GameName` and `GamePrice` as named properties, not just as text. This means log aggregation tools (like Application Insights or Seq) can filter, query, and group by these values.
+
+**How it fits — logging from `WebApplication` directly:**
+```csharp
+public static async Task InitializeDbAsync(this WebApplication app)
+{
+    await app.MigrateDbAsync();
+    await app.SeedDbAsync();
+    app.Logger.LogInformation("Database initialized");  // app has a built-in logger
+}
+```
+
+`WebApplication` exposes `app.Logger` directly — no injection needed in extension methods where you already have the `app` reference.
+
+**Log levels (lowest → highest severity):**
+
+| Level | Method | When to use |
+|-------|--------|-------------|
+| `Trace` | `LogTrace()` | Extremely detailed, usually disabled |
+| `Debug` | `LogDebug()` | Diagnostic info for debugging |
+| `Information` | `LogInformation()` | Normal operational events ("Game created") |
+| `Warning` | `LogWarning()` | Something unexpected but recoverable |
+| `Error` | `LogError()` | A failure that needs attention |
+| `Critical` | `LogCritical()` | App-breaking failure |
+
+**Filtering by log level in `appsettings.json`:**
+```json
+"Logging": {
+  "LogLevel": {
+    "Default": "Information",
+    "Microsoft.AspNetCore": "Warning",
+    "Microsoft.EntityFrameworkCore.Database.Command": "Warning"
+  }
+}
+```
+
+Each key is a logger category (usually the namespace or class name). The value is the minimum level to show — anything below it is suppressed. `"Microsoft.EntityFrameworkCore.Database.Command": "Warning"` silences EF Core's SQL output, which would otherwise print every query.
 
 ---
 
@@ -158,6 +304,8 @@ global using GoGameShop.Api.Features.Games;
 Now any file in the project can reference `Game`, `GoGameShopContext`, or `GetGamesEndpoint` without importing anything.
 
 ---
+
+## Data & EF Core
 
 ## 6. Models & Entities
 *March 18, 2026*
@@ -216,6 +364,172 @@ It also handles:
 
 **How it fits:**
 This project uses EF Core with the SQLite provider. The three tables (Games, Genres, Ratings) are entirely managed by EF Core — no SQL was written manually.
+
+**Common EF Core queries and their SQL counterparts:**
+
+**Get all rows**
+```csharp
+await dbContext.Games.ToListAsync();
+```
+```sql
+SELECT * FROM Games;
+```
+
+---
+
+**Filter rows**
+```csharp
+await dbContext.Games.Where(g => g.Price < 30).ToListAsync();
+```
+```sql
+SELECT * FROM Games WHERE Price < 30;
+```
+
+---
+
+**Get one by primary key**
+```csharp
+await dbContext.Games.FindAsync(id);
+```
+```sql
+SELECT * FROM Games WHERE Id = @id LIMIT 1;
+```
+
+---
+
+**Get first match (throws if none found)**
+```csharp
+await dbContext.Games.FirstAsync(g => g.Name == "Halo");
+```
+```sql
+SELECT * FROM Games WHERE Name = 'Halo' LIMIT 1;
+```
+
+---
+
+**Get first match or null**
+```csharp
+await dbContext.Games.FirstOrDefaultAsync(g => g.Name == "Halo");
+```
+```sql
+SELECT * FROM Games WHERE Name = 'Halo' LIMIT 1;
+-- returns NULL if no row matches
+```
+
+---
+
+**Select specific columns (projection)**
+```csharp
+await dbContext.Games.Select(g => new { g.Id, g.Name }).ToListAsync();
+```
+```sql
+SELECT Id, Name FROM Games;
+```
+
+---
+
+**Join / load related data (eager loading)**
+```csharp
+await dbContext.Games.Include(g => g.Genre).ToListAsync();
+```
+```sql
+SELECT Games.*, Genres.*
+FROM Games
+INNER JOIN Genres ON Games.GenreId = Genres.Id;
+```
+
+---
+
+**Order results**
+```csharp
+await dbContext.Games.OrderBy(g => g.Price).ToListAsync();
+await dbContext.Games.OrderByDescending(g => g.Price).ToListAsync();
+```
+```sql
+SELECT * FROM Games ORDER BY Price ASC;
+SELECT * FROM Games ORDER BY Price DESC;
+```
+
+---
+
+**Count rows**
+```csharp
+await dbContext.Games.CountAsync();
+await dbContext.Games.CountAsync(g => g.Price < 30);
+```
+```sql
+SELECT COUNT(*) FROM Games;
+SELECT COUNT(*) FROM Games WHERE Price < 30;
+```
+
+---
+
+**Check if any row exists**
+```csharp
+await dbContext.Games.AnyAsync(g => g.GenreId == id);
+```
+```sql
+SELECT CASE WHEN EXISTS (
+    SELECT 1 FROM Games WHERE GenreId = @id
+) THEN 1 ELSE 0 END;
+```
+
+---
+
+**Insert a row**
+```csharp
+dbContext.Games.Add(game);
+await dbContext.SaveChangesAsync();
+```
+```sql
+INSERT INTO Games (Id, Name, GenreId, RatingId, Price, ReleaseDate, Description)
+VALUES (@Id, @Name, @GenreId, @RatingId, @Price, @ReleaseDate, @Description);
+```
+
+---
+
+**Update a row**
+```csharp
+var game = await dbContext.Games.FindAsync(id);
+game.Price = 19.99m;
+await dbContext.SaveChangesAsync();
+```
+```sql
+UPDATE Games SET Price = 19.99 WHERE Id = @id;
+```
+
+---
+
+**Delete a row (load then remove)**
+```csharp
+var game = await dbContext.Games.FindAsync(id);
+dbContext.Games.Remove(game);
+await dbContext.SaveChangesAsync();
+```
+```sql
+DELETE FROM Games WHERE Id = @id;
+```
+
+---
+
+**Delete without loading (bulk/direct)**
+```csharp
+await dbContext.Games.Where(g => g.Id == id).ExecuteDeleteAsync();
+```
+```sql
+DELETE FROM Games WHERE Id = @id;
+-- No SELECT round-trip — single statement
+```
+
+---
+
+**Pagination (skip & take)**
+```csharp
+await dbContext.Games.Skip(20).Take(10).ToListAsync();
+```
+```sql
+SELECT * FROM Games LIMIT 10 OFFSET 20;
+```
 
 ---
 
@@ -317,6 +631,8 @@ private static async Task SeedDbAsync(this WebApplication app)
 
 ---
 
+## C# Language & Patterns
+
 ## 11. Extension Methods
 *March 25, 2026*
 
@@ -367,6 +683,8 @@ app.MapGet("/", (GoGameShopContext dbContext) =>
 ASP.NET Core sees the `GoGameShopContext` parameter and automatically creates and injects one per request. When the request ends, it disposes of it.
 
 ---
+
+## API Design
 
 ## 13. Route Groups
 *March 21, 2026*
@@ -550,6 +868,8 @@ If the game doesn't exist, return 404. Otherwise return 200 with the data.
 
 ---
 
+## Data & EF Core *(continued)*
+
 ## 19. AsNoTracking
 *March 27, 2026*
 
@@ -626,6 +946,8 @@ The `!` (null-forgiving operator) tells the compiler "I know this won't be null 
 
 ---
 
+## C# Language & Patterns *(continued)*
+
 ## 22. Vertical Slice Architecture
 *March 21, 2026*
 
@@ -657,6 +979,185 @@ Features/
 Each folder is a self-contained "slice" of the application. Adding a new feature means adding a new folder, not modifying multiple existing layers.
 
 ---
+
+## 32. Delegates, Func & Action
+*March 29, 2026*
+
+**What a delegate is:**
+A delegate is a type that holds a reference to a method — it's essentially a variable that stores a function. You can pass it around, store it, and call it later just like calling the original method.
+
+```csharp
+// Declare a delegate type
+delegate int MathOperation(int a, int b);
+
+// Assign a method to it
+MathOperation add = (a, b) => a + b;
+
+// Call it
+int result = add(3, 5);  // 8
+```
+
+**Why it matters:**
+Delegates are the foundation of callbacks, event handling, and LINQ. Every time you write a lambda like `game => game.Price < 30`, you're creating a delegate. The reason `Where()`, `Select()`, `Include()`, and `OrderBy()` can accept lambdas is because their parameters are delegate types (`Func<T, bool>`, `Func<T, TResult>`, etc.).
+
+---
+
+**`Func<>` — delegates that return a value:**
+
+`Func<T, TResult>` is a built-in delegate type for functions that take input and return a result. The last type parameter is always the return type.
+
+```csharp
+Func<int, int, int>  add     = (a, b) => a + b;      // takes 2 ints, returns int
+Func<Game, bool>     isChap  = game => game.Price < 20; // takes Game, returns bool
+Func<Game, string>   getName = game => game.Name;      // takes Game, returns string
+```
+
+These appear constantly in EF Core:
+```csharp
+dbContext.Games.Where(game => game.Price < 30)
+//              ^ Func<Game, bool>
+
+dbContext.Games.Select(game => game.Name)
+//              ^ Func<Game, string>
+
+dbContext.Games.OrderBy(game => game.Price)
+//               ^ Func<Game, decimal>
+```
+
+---
+
+**`Action<>` — delegates that return nothing:**
+
+`Action<T>` is a built-in delegate type for methods that take input but return `void`.
+
+```csharp
+Action<string>       print  = message => Console.WriteLine(message);
+Action<Game, string> log    = (game, msg) => Console.WriteLine($"{game.Name}: {msg}");
+Action               greet  = () => Console.WriteLine("Hello");  // no parameters
+```
+
+Used in things like `List.ForEach`:
+```csharp
+games.ForEach(game => Console.WriteLine(game.Name));
+//            ^ Action<Game>
+```
+
+---
+
+**Lambda expressions:**
+
+A lambda is the shorthand syntax for creating a delegate inline. The `=>` is read as "goes to":
+
+```csharp
+// Full method
+int Add(int a, int b) { return a + b; }
+
+// Equivalent lambda
+(int a, int b) => a + b
+
+// Type-inferred lambda (compiler figures out the types from context)
+(a, b) => a + b
+```
+
+Single-parameter lambdas don't need parentheses:
+```csharp
+game => game.Price < 30
+```
+
+**In this project, lambdas appear everywhere:**
+```csharp
+.Where(game => game.Id == id)              // filter predicate
+.Include(game => game.Genre)               // navigation selector
+.Select(game => new GameSummaryDto(...))   // projection
+.OrderBy(game => game.Price)               // sort key
+```
+
+---
+
+## 33. Generics
+*March 29, 2026*
+
+**What they are:**
+Generics let you write a class, method, or interface that works with *any* type, specified later by the caller. The type parameter is written in angle brackets: `<T>`.
+
+```csharp
+// Without generics — only works for int
+int[] intArray = new int[5];
+
+// With generics — works for any type
+List<int>    numbers = new List<int>();
+List<string> names   = new List<string>();
+List<Game>   games   = new List<Game>();
+```
+
+The `T` is just a placeholder name — it could be `T`, `TResult`, `TEntity`, or anything. By convention `T` is used for a single type parameter.
+
+**Why they're used:**
+Without generics you'd need a separate `GameList`, `GenreList`, `RatingList` class for each type. With generics, one `List<T>` covers all of them. You get type safety (the compiler knows what's inside) without sacrificing reusability.
+
+**How they appear in this project:**
+
+`DbSet<T>` — EF Core's table accessor is generic:
+```csharp
+public DbSet<Game>   Games   => Set<Game>();
+public DbSet<Genre>  Genres  => Set<Genre>();
+public DbSet<Rating> Ratings => Set<Rating>();
+```
+
+`AddSqlite<T>` — registers the specific DbContext type:
+```csharp
+builder.Services.AddSqlite<GoGameShopContext>(connectionString);
+```
+
+`GetRequiredService<T>` — resolves a specific type from the DI container:
+```csharp
+scope.ServiceProvider.GetRequiredService<GoGameShopContext>();
+```
+
+`Task<T>` — an async operation that produces a specific result type:
+```csharp
+Task<Game?>        // async operation that returns a nullable Game
+Task<List<Game>>   // async operation that returns a list of Games
+```
+
+`ILogger<T>` — logger scoped to a specific class:
+```csharp
+ILogger<Program>   // logger whose category name is "Program"
+```
+
+**Generic methods:**
+
+A method can also be generic, with the type parameter on the method itself:
+
+```csharp
+// Generic method — T is determined by the caller
+T GetFirst<T>(List<T> items) => items[0];
+
+// Calling it — compiler infers T from the argument
+string first = GetFirst(new List<string> { "a", "b" });  // T = string
+Game   game  = GetFirst(new List<Game> { ... });          // T = Game
+```
+
+**Generic constraints (`where T : ...`):**
+
+You can restrict what types are allowed as `T`:
+
+```csharp
+// T must be a class (reference type)
+void Save<T>(T entity) where T : class { ... }
+
+// T must implement an interface
+void Print<T>(T item) where T : IFormattable { ... }
+
+// T must have a parameterless constructor
+T Create<T>() where T : new() => new T();
+```
+
+EF Core's `DbContext.Set<T>()` uses `where T : class` — it only works with reference types, not primitives.
+
+---
+
+## API Design *(continued)*
 
 ## 23. Constants & Named Endpoints
 *March 21, 2026*
@@ -744,6 +1245,8 @@ When `ASPNETCORE_ENVIRONMENT` is `"Development"`:
 The app is accessible at `http://localhost:5078` during development.
 
 ---
+
+## Async Programming
 
 ## 26. Async/Await
 *March 29, 2026*

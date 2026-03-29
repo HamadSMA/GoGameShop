@@ -66,7 +66,8 @@ GoGameShop is a backend service designed to manage a catalog of digital games, i
 
 Configuration is managed via `appsettings.json` and `appsettings.Development.json`.
 
-- **ConnectionStrings:GoGameShop:** SQLite connection string (Default: `Data Source=GoGameShop.db`).
+- **ConnectionStrings:GoGameShop:** SQLite connection string — defined in `appsettings.Development.json` (Default: `Data Source=GoGameShop.db`).
+- **Logging:** Log levels are configured per namespace. EF Core SQL command logging is set to `Warning` in development to suppress verbose query output.
 
 ## API Endpoints
 
@@ -98,7 +99,7 @@ GoGameShop/
 │   │       │   ├── Migrations/           # Auto-generated EF Core migration files
 │   │       │   ├── DataExtensions.cs     # DB initialization and seed data logic
 │   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
-│   │       │   └── GoGameShopData.cs     # Hardcoded sample data (unused)
+│   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
 │   │       ├── Features/                 # Vertical slices by feature
 │   │       │   ├── Games/
 │   │       │   │   ├── Constants/        # Endpoint name constants

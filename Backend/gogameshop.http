@@ -13,7 +13,7 @@ POST http://localhost:5078/games/
 Content-Type: application/json
 
 {
-    "name": "Final Fantasy 7 Snake Eater",
+    "name": "Pandimonium",
     "genreId": "2F77B8B2-2CA7-4DAB-A048-952955FBF10F",
     "ratingId": "4A386C1B-7F13-45FC-9843-B3EEDCF674D7",
     "releaseDate": "2020-04-10",
