@@ -5,20 +5,20 @@ namespace GoGameShop.Api.Data;
 public static class DataExtensions
 {
 
-    public static void InitializeDb(this WebApplication app)
+    public static async Task InitializeDbAsync(this WebApplication app)
     {
-        app.MigrateDb();
-        app.SeedDb();
+        await app.MigrateDbAsync();
+        await app.SeedDbAsync();
     }
 
-    private static void MigrateDb(this WebApplication app)
+    private static async Task MigrateDbAsync(this WebApplication app)
     {
         using var scope = app.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<GoGameShopContext>();
-        dbContext.Database.Migrate();
+        await dbContext.Database.MigrateAsync();
     }
 
-    private static void SeedDb(this WebApplication app)
+    private static async Task SeedDbAsync(this WebApplication app)
     {
         using var scope = app.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<GoGameShopContext>();
@@ -41,13 +41,13 @@ public static class DataExtensions
 
         if (!dbContext.Ratings.Any())
         {
-            dbContext.Ratings.AddRange(
+             dbContext.Ratings.AddRange(
                 new Rating { Name = "Everyone" },
                 new Rating { Name = "Teen" },
                 new Rating { Name = "Mature" }
             );
         }
         
-        dbContext.SaveChanges();
+        await dbContext.SaveChangesAsync();
     }
 }

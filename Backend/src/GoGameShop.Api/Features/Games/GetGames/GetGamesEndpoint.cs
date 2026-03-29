@@ -8,7 +8,7 @@ public static class GetGamesEndpoint
     {
         // GET /games
         app.MapGet("/",
-            (GoGameShopContext dbContext) => dbContext.Games
+            async (GoGameShopContext dbContext) => await dbContext.Games
                 .Include(game => game.Genre)
                 .Include(game => game.Rating)
                 .Select(game => new GameSummaryDto(
@@ -18,8 +18,8 @@ public static class GetGamesEndpoint
                     game.Rating!.Name,
                     game.Price,
                     game.ReleaseDate
-                    ))
-                .AsNoTracking());
-        
+                ))
+                .AsNoTracking().ToListAsync());
+
     }
 }

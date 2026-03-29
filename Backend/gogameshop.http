@@ -1,13 +1,13 @@
 
 GET http://localhost:5078/games
 ###
-GET http://localhost:5078/games/57F0A570-A51F-4964-B4BD-3C02F4B3E90F
+GET http://localhost:5078/games/57f0a570-a51f-4964-b4bd-3c02f4b3e90f
 ###
 GET http://localhost:5078/genres
 ###
 GET http://localhost:5078/ratings
 ###
-DELETE http://localhost:5078/games/1D0AB9C5-9D14-441D-9BD0-FF356E568BA6
+DELETE http://localhost:5078/games/69492d9a-4deb-44ba-aa1f-a5e6abc7f27b
 ###
 POST http://localhost:5078/games/
 Content-Type: application/json

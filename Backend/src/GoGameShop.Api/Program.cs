@@ -10,5 +10,5 @@ var app = builder.Build();
 app.MapGames();
 app.MapGetGenres();
 app.MapGetRatings();
-app.InitializeDb();
+await app.InitializeDbAsync();
 app.Run();

@@ -6,10 +6,10 @@ public static class GetRatingsEndpoint
 {
     public static void MapGetRatings(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/ratings", (GoGameShopContext dbContext) =>
+        app.MapGet("/ratings", async (GoGameShopContext dbContext) =>
 
-            dbContext.Ratings.Select(rating => new GameRatingsDto(
+            await dbContext.Ratings.Select(rating => new GameRatingsDto(
                 rating.Id,
-                rating.Name)).AsNoTracking());
+                rating.Name)).AsNoTracking().ToListAsync());
     }
 }

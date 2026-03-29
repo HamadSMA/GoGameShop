@@ -5,9 +5,9 @@ public static class UpdateGameEndpoint
     public static void MapUpdateGame(this IEndpointRouteBuilder app)
     {
         // PUT /games/{id}
-        app.MapPut("/{id}", (Guid id, GoGameShopContext dbContext, UpdateGameDto gameDto) =>
+        app.MapPut("/{id}", async (Guid id, GoGameShopContext dbContext, UpdateGameDto gameDto) =>
         {
-            var game = dbContext.Games.Find(id);
+            var game = await dbContext.Games.FindAsync(id);
 
             if (game is null)
             {
@@ -21,7 +21,7 @@ public static class UpdateGameEndpoint
             game.Price = gameDto.Price;
             game.Description = gameDto.Description;
             
-            dbContext.SaveChanges();
+            await dbContext.SaveChangesAsync();
             
             return Results.NoContent();
 

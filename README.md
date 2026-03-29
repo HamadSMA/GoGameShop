@@ -47,7 +47,7 @@ GoGameShop is a backend service designed to manage a catalog of digital games, i
     ```bash
     dotnet ef database update --project Backend/src/GoGameShop.Api
     ```
-    *Note: The application is configured to run `app.MigrateDb()` on startup, which should handle migrations automatically.*
+    *Note: The application calls `InitializeDbAsync()` on startup, which automatically applies migrations and seeds initial data (9 genres, 3 ratings).*
 
 4.  **Run the application:**
     ```bash
@@ -68,26 +68,72 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 
 - **ConnectionStrings:GoGameShop:** SQLite connection string (Default: `Data Source=GoGameShop.db`).
 
+## API Endpoints
+
+### Games
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/games` | Get all games (returns lightweight summary with genre/rating names) |
+| `GET` | `/games/{id}` | Get a single game by ID |
+| `POST` | `/games` | Create a new game |
+| `PUT` | `/games/{id}` | Update an existing game |
+| `DELETE` | `/games/{id}` | Delete a game by ID |
+
+### Genres & Ratings
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/genres` | Get all genres |
+| `GET` | `/ratings` | Get all ratings |
+
 ## Project Structure
 
 ```text
 GoGameShop/
 ├── Backend/
 │   ├── src/
-│   │   └── GoGameShop.Api/       # Main API Project
-│   │       ├── Data/             # EF Core DbContext and Migrations
-│   │       ├── Features/         # Vertical slices for API endpoints (Games, Genres, etc.)
-│   │       ├── Models/           # Domain models/Entities
-│   │       └── Program.cs        # Application entry point
-│   └── gogameshop.http           # Sample HTTP requests for testing
-├── LICENSE                       # MIT License
-└── README.md                     # Project documentation
+│   │   └── GoGameShop.Api/               # Main API project
+│   │       ├── Data/                     # EF Core DbContext, seeding, and migrations
+│   │       │   ├── Migrations/           # Auto-generated EF Core migration files
+│   │       │   ├── DataExtensions.cs     # DB initialization and seed data logic
+│   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
+│   │       │   └── GoGameShopData.cs     # Hardcoded sample data (unused)
+│   │       ├── Features/                 # Vertical slices by feature
+│   │       │   ├── Games/
+│   │       │   │   ├── Constants/        # Endpoint name constants
+│   │       │   │   ├── CreateGame/       # POST /games (endpoint + DTOs)
+│   │       │   │   ├── DeleteGame/       # DELETE /games/{id} (endpoint)
+│   │       │   │   ├── GetGame/          # GET /games/{id} (endpoint + DTOs)
+│   │       │   │   ├── GetGames/         # GET /games (endpoint + DTOs)
+│   │       │   │   ├── UpdateGame/       # PUT /games/{id} (endpoint + DTOs)
+│   │       │   │   └── GamesEndpoints.cs # Maps all /games routes
+│   │       │   ├── Genres/               # GET /genres (endpoint + DTOs)
+│   │       │   └── Ratings/              # GET /ratings (endpoint + DTOs)
+│   │       ├── Models/                   # Domain entities (Game, Genre, Rating)
+│   │       ├── Properties/               # launchSettings.json
+│   │       ├── GlobalUsings.cs           # Global namespace imports
+│   │       ├── appsettings.json          # App configuration
+│   │       ├── appsettings.Development.json
+│   │       └── Program.cs                # Application entry point
+│   └── gogameshop.http                   # Sample HTTP requests for testing
+├── postman/                              # Postman workspace
+│   ├── collections/                      # Saved API collections
+│   ├── environments/                     # Environment variables
+│   ├── flows/
+│   ├── globals/
+│   ├── mocks/
+│   └── specs/
+├── .postman/                             # Postman backup/config
+├── LICENSE                               # MIT License
+└── README.md                             # Project documentation
 ```
 
 ## Tests
 
 - **TODO:** Implement automated unit and integration tests (e.g., using xUnit or NUnit).
-- **Manual Testing:** Use the `Backend/gogameshop.http` file with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension in VS Code or the built-in HTTP client in JetBrains Rider.
+- **Manual Testing (HTTP file):** Use `Backend/gogameshop.http` with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension in VS Code or the built-in HTTP client in JetBrains Rider.
+- **Manual Testing (Postman):** Import collections from the `postman/collections/` directory into Postman.
 
 ## License
 
