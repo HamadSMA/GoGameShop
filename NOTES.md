@@ -40,7 +40,7 @@
 ---
 
 ## 1. ASP.NET Core & Minimal APIs
-\1\2
+*March 17, 2026*
 
 **What it is:**
 ASP.NET Core is Microsoft's framework for building web applications and APIs with C#. A **Minimal API** is a lightweight way to define HTTP endpoints directly in code — without needing controllers, classes, or a lot of boilerplate.
@@ -54,7 +54,7 @@ Every endpoint in this project (`MapGet`, `MapPost`, etc.) is a Minimal API. Ins
 ---
 
 ## 2. Program.cs — The Entry Point
-\1\2
+*March 17, 2026*
 
 **What it is:**
 `Program.cs` is the starting point of a .NET application. Every .NET app has one. It's where you configure services (things the app needs) and the request pipeline (how requests are handled).
@@ -87,7 +87,7 @@ The two phases are:
 ---
 
 ## 3. The .csproj File — Project Configuration
-\1\2
+*March 17, 2026*
 
 **What it is:**
 The `.csproj` file (C# project file) is an XML file that defines the project's settings and dependencies. Think of it as the project's identity card.
@@ -112,7 +112,7 @@ The `.csproj` file (C# project file) is an XML file that defines the project's s
 ---
 
 ## 4. appsettings.json — App Configuration
-\1\2
+*March 17, 2026*
 
 **What it is:**
 A JSON file that stores configuration values for your application — things like database connection strings, log levels, and feature flags.
@@ -139,7 +139,7 @@ This tells EF Core to use a SQLite database file named `GoGameShop.db` in the pr
 ---
 
 ## 5. Global Usings
-\1\2
+*March 21, 2026*
 
 **What it is:**
 A C# feature that lets you declare `using` statements once in a single file (`GlobalUsings.cs`) and have them apply across every file in the project.
@@ -160,7 +160,7 @@ Now any file in the project can reference `Game`, `GoGameShopContext`, or `GetGa
 ---
 
 ## 6. Models & Entities
-\1\2
+*March 18, 2026*
 
 **What it is:**
 A **model** (also called an **entity**) is a C# class that represents a real-world thing your app works with. In EF Core, each model maps to a database table.
@@ -194,7 +194,7 @@ Key concepts here:
 ---
 
 ## 7. Entity Framework Core (EF Core)
-\1\2
+*March 22, 2026*
 
 **What it is:**
 EF Core is an **Object-Relational Mapper (ORM)**. It lets you interact with a database using C# objects and LINQ instead of writing raw SQL queries.
@@ -220,7 +220,7 @@ This project uses EF Core with the SQLite provider. The three tables (Games, Gen
 ---
 
 ## 8. DbContext
-\1\2
+*March 22, 2026*
 
 **What it is:**
 `DbContext` is the central class in EF Core. It represents a session with the database and gives you access to your tables through `DbSet<T>` properties.
@@ -246,7 +246,7 @@ public class GoGameShopContext(DbContextOptions<GoGameShopContext> options)
 ---
 
 ## 9. Database Migrations
-\1\2
+*March 24, 2026*
 
 **What it is:**
 A migration is a snapshot of your database schema at a point in time. EF Core generates them automatically when you change your models, and applies them to create or update the real database.
@@ -284,7 +284,7 @@ dotnet ef database update                  # Apply pending migrations
 ---
 
 ## 10. Database Seeding
-\1\2
+*March 27, 2026*
 
 **What it is:**
 Seeding means pre-populating the database with initial data when the app first starts.
@@ -318,7 +318,7 @@ private static async Task SeedDbAsync(this WebApplication app)
 ---
 
 ## 11. Extension Methods
-\1\2
+*March 25, 2026*
 
 **What it is:**
 An extension method is a static method that "adds" new methods to an existing type without modifying its source code. You define it with the `this` keyword in the parameter list.
@@ -343,7 +343,7 @@ This pattern is used everywhere:
 ---
 
 ## 12. Dependency Injection
-\1\2
+*March 22, 2026*
 
 **What it is:**
 Dependency Injection (DI) is a design pattern where objects receive their dependencies (things they need) from the outside rather than creating them themselves. In ASP.NET Core, a built-in DI container manages this automatically.
@@ -369,7 +369,7 @@ ASP.NET Core sees the `GoGameShopContext` parameter and automatically creates an
 ---
 
 ## 13. Route Groups
-\1\2
+*March 21, 2026*
 
 **What it is:**
 A route group lets you apply a common URL prefix to a set of endpoints, so you don't repeat it on every single one.
@@ -396,7 +396,7 @@ Each child endpoint only defines its relative path (e.g., `/` or `/{id}`), not t
 ---
 
 ## 14. DTOs (Data Transfer Objects)
-\1\2
+*March 20, 2026*
 
 **What it is:**
 A DTO is a simple object used to transfer data between layers — specifically between your API and its clients. It defines exactly what data to accept (input) or return (output), separate from your database model.
@@ -429,7 +429,7 @@ Notice that `GameSummaryDto` returns `Genre` as a `string` (the genre name), whi
 ---
 
 ## 15. C# Records
-\1\2
+*March 20, 2026*
 
 **What it is:**
 A `record` is a special C# type designed for immutable data objects. It auto-generates equality comparison, `ToString()`, and a constructor based on the properties you declare.
@@ -456,7 +456,7 @@ The record syntax on one line replaces what would be 30+ lines of a class.
 ---
 
 ## 16. Data Annotations & Validation
-\1\2
+*March 21, 2026*
 
 **What it is:**
 Data annotations are attributes (markers in square brackets) you put on DTO properties to declare validation rules. The framework enforces them automatically before your endpoint code runs.
@@ -487,7 +487,7 @@ Common annotations:
 ---
 
 ## 17. CRUD Endpoints
-\1\2
+*March 21, 2026*
 
 **What it is:**
 CRUD stands for **Create, Read, Update, Delete** — the four fundamental operations on data. REST APIs map these to HTTP verbs: `POST`, `GET`, `PUT`/`PATCH`, `DELETE`.
@@ -523,7 +523,7 @@ EF Core "tracks" the entity retrieved by `FindAsync()`. When you mutate its prop
 ---
 
 ## 18. HTTP Status Codes & Results
-\1\2
+*March 21, 2026*
 
 **What it is:**
 HTTP status codes are standardized numbers included in every response that tell the client what happened. `Results` is an ASP.NET Core helper for building responses with the correct code.
@@ -551,7 +551,7 @@ If the game doesn't exist, return 404. Otherwise return 200 with the data.
 ---
 
 ## 19. AsNoTracking
-\1\2
+*March 27, 2026*
 
 **What it is:**
 By default, EF Core tracks every entity it loads — it keeps a copy in memory to detect changes when you call `SaveChanges()`. `AsNoTracking()` disables this for a query.
@@ -573,7 +573,7 @@ Used in `GET /games`, `GET /genres`, and `GET /ratings` — all pure read operat
 ---
 
 ## 20. ExecuteDelete
-\1\2
+*March 27, 2026*
 
 **What it is:**
 `ExecuteDelete()` is an EF Core method that translates directly into a SQL `DELETE` statement without loading the entity into memory first.
@@ -595,7 +595,7 @@ No entity is loaded into memory — it's a direct, efficient delete. `ExecuteDel
 ---
 
 ## 21. Include (Eager Loading)
-\1\2
+*March 27, 2026*
 
 **What it is:**
 By default, EF Core does not load related entities (navigation properties). **Eager loading** with `Include()` tells it to load them in the same query using a SQL `JOIN`.
@@ -627,7 +627,7 @@ The `!` (null-forgiving operator) tells the compiler "I know this won't be null 
 ---
 
 ## 22. Vertical Slice Architecture
-\1\2
+*March 21, 2026*
 
 **What it is:**
 Vertical slicing organizes code by **feature** rather than by **technical layer**. Instead of folders named `Controllers/`, `Services/`, `Repositories/`, you have folders named by what they do.
@@ -659,7 +659,7 @@ Each folder is a self-contained "slice" of the application. Adding a new feature
 ---
 
 ## 23. Constants & Named Endpoints
-\1\2
+*March 21, 2026*
 
 **What it is:**
 Instead of hardcoding a string like `"GetGame"` in multiple places, you define it once as a constant. Named endpoints give an endpoint an identifier that can be referenced elsewhere.
@@ -690,7 +690,7 @@ Results.CreatedAtRoute(EndpointNames.GetGame, new { id = game.Id }, dto)
 ---
 
 ## 24. CreatedAtRoute
-\1\2
+*March 21, 2026*
 
 **What it is:**
 `Results.CreatedAtRoute()` returns a `201 Created` HTTP response that includes a `Location` header pointing to the URL of the newly created resource.
@@ -718,7 +718,7 @@ The response will have:
 ---
 
 ## 25. launchSettings.json
-\1\2
+*March 17, 2026*
 
 **What it is:**
 A development-only configuration file in the `Properties/` folder that defines how the app starts when you run `dotnet run` or launch from an IDE.
