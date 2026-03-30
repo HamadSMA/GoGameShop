@@ -149,7 +149,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ▓▓▓░░░░░░░  Async/Await, Structured Logging, HTTP Logging, Custom Middleware
 ░░░░░░░░░░  Error Handling, Pagination, OpenAPI
 ░░░░░░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
-░░░░░░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
 ░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
 ░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire
 ░░░░░░░░░░  Stripe Payments, Service Bus, Outbox Pattern, Background Workers

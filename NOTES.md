@@ -7,56 +7,17 @@
 
 ## Table of Contents
 
-**Project Setup & Configuration**
-- [1. ASP.NET Core & Minimal APIs](#1-aspnet-core-minimal-apis)
-- [2. Program.cs — The Entry Point](#2-programcs-the-entry-point)
-- [30. WebApplication & WebApplicationBuilder](#30-webapplication-webapplicationbuilder)
-- [3. The .csproj File — Project Configuration](#3-the-csproj-file-project-configuration)
-- [4. appsettings.json — App Configuration](#4-appsettingsjson-app-configuration)
-- [31. Logging](#31-logging)
-- [5. Global Usings](#5-global-usings)
-- [34. Middleware](#34-middleware)
-- [35. Middleware Order](#35-middleware-order)
-- [36. Options Pattern](#36-options-pattern)
-- [25. launchSettings.json](#25-launchsettingsjson)
-
-**Data & EF Core**
-- [6. Models & Entities](#6-models-entities)
-- [7. Entity Framework Core (EF Core)](#7-entity-framework-core-ef-core)
-- [8. DbContext](#8-dbcontext)
-- [9. Database Migrations](#9-database-migrations)
-- [10. Database Seeding](#10-database-seeding)
-- [19. AsNoTracking](#19-asnotracking)
-- [20. ExecuteDelete](#20-executedelete)
-- [21. Include (Eager Loading)](#21-include-eager-loading)
-
-**C# Language & Patterns**
-- [11. Extension Methods](#11-extension-methods)
-- [12. Dependency Injection](#12-dependency-injection)
-- [15. C# Records](#15-c-records)
-- [32. Delegates, Func & Action](#32-delegates-func-action)
-- [33. Generics](#33-generics)
-- [22. Vertical Slice Architecture](#22-vertical-slice-architecture)
-
-**API Design**
-- [13. Route Groups](#13-route-groups)
-- [14. DTOs (Data Transfer Objects)](#14-dtos-data-transfer-objects)
-- [16. Data Annotations & Validation](#16-data-annotations-validation)
-- [17. CRUD Endpoints](#17-crud-endpoints)
-- [18. HTTP Status Codes & Results](#18-http-status-codes-results)
-- [23. Constants & Named Endpoints](#23-constants-named-endpoints)
-- [24. CreatedAtRoute](#24-createdatroute)
-
-**Async Programming**
-- [26. Async/Await](#26-asyncawait)
-- [27. The Task Type](#27-the-task-type)
-- [28. ValueTask & .AsTask()](#28-valuetask-astask)
-- [29. ContinueWith](#29-continuewith)
+- [Project Setup and Configuration](#project-setup-and-configuration)
+- [Data and EF Core](#data-and-ef-core)
+- [Language and Patterns](#language-and-patterns)
+- [API Design](#api-design)
+- [Async Programming](#async-programming)
 
 ---
 
-## Project Setup & Configuration
-## 1. ASP.NET Core & Minimal APIs
+## Project Setup and Configuration
+
+### ASP.NET Core & Minimal APIs
 
 **What it is:**
 ASP.NET Core is Microsoft's framework for building web applications and APIs with C#. A **Minimal API** is a lightweight way to define HTTP endpoints directly in code — without needing controllers, classes, or a lot of boilerplate.
@@ -68,7 +29,7 @@ Traditional ASP.NET used "controllers" — classes with many methods. Minimal AP
 Every endpoint in this project (`MapGet`, `MapPost`, etc.) is a Minimal API. Instead of a `GamesController` class, there is a `MapGames()` method that registers all game-related routes.
 
 ---
-## 2. Program.cs — The Entry Point
+### Program.cs — The Entry Point
 
 **What it is:**
 `Program.cs` is the starting point of a .NET application. Every .NET app has one. It's where you configure services (things the app needs) and the request pipeline (how requests are handled).
@@ -83,8 +44,18 @@ var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
 
 builder.Services.AddSqlite<GoGameShopContext>(connectionString);  // Register the database
 builder.Services.AddValidation();                                 // Register validation
+builder.Services.AddHttpLogging(options =>                        // Configure HTTP logging
+{
+    options.LoggingFields = HttpLoggingFields.RequestMethod |
+                            HttpLoggingFields.RequestPath |
+                            HttpLoggingFields.ResponseStatusCode |
+                            HttpLoggingFields.Duration;
+    options.CombineLogs = true;
+});
 
 var app = builder.Build();                                        // Build the app
+
+app.UseHttpLogging();               // Log each request/response
 
 app.MapGames();                     // Register /games endpoints
 app.MapGetGenres();                 // Register /genres endpoint
@@ -99,7 +70,7 @@ The two phases are:
 - **App phase** (`app.*`): Configure the pipeline and run
 
 ---
-## 30. WebApplication & WebApplicationBuilder
+### WebApplication & WebApplicationBuilder
 
 **What they are:**
 `WebApplicationBuilder` is the object returned by `WebApplication.CreateBuilder(args)`. It's where you configure everything *before* the app starts — services, logging, configuration sources. Once you call `builder.Build()`, you get back a `WebApplication`, which is the running app itself.
@@ -154,7 +125,7 @@ app.Run()               // Start listening for requests
 ```
 
 ---
-## 3. The .csproj File — Project Configuration
+### The .csproj File — Project Configuration
 
 **What it is:**
 The `.csproj` file (C# project file) is an XML file that defines the project's settings and dependencies. Think of it as the project's identity card.
@@ -177,7 +148,7 @@ The `.csproj` file (C# project file) is an XML file that defines the project's s
 - The `PackageReference` entries pull in EF Core and the SQLite driver from NuGet.
 
 ---
-## 4. appsettings.json — App Configuration
+### appsettings.json — App Configuration
 
 **What it is:**
 A JSON file that stores configuration values for your application — things like database connection strings, log levels, and feature flags.
@@ -241,7 +212,7 @@ This tells EF Core to use a SQLite database file named `GoGameShop.db` in the pr
 The key difference: HTTP logging is `Information` in production (base config) but `None` in development — because in dev you don't need per-request HTTP logs cluttering the console, but you do want them in production for observability.
 
 ---
-## 31. Logging
+### Logging
 
 **What it is:**
 ASP.NET Core has a built-in logging system. You inject an `ILogger<T>` into any class or endpoint and call methods like `LogInformation()`, `LogWarning()`, or `LogError()` to write log messages. `WebApplicationBuilder` sets this up automatically — you don't need to configure anything to get started.
@@ -336,7 +307,7 @@ app.UseHttpLogging();
 The log category for HTTP logging is `Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware`, which lets you control its verbosity independently in `appsettings.json`.
 
 ---
-## 5. Global Usings
+### Global Usings
 
 **What it is:**
 A C# feature that lets you declare `using` statements once in a single file (`GlobalUsings.cs`) and have them apply across every file in the project.
@@ -355,7 +326,7 @@ global using GoGameShop.Api.Features.Games;
 Now any file in the project can reference `Game`, `GoGameShopContext`, or `GetGamesEndpoint` without importing anything.
 
 ---
-## 34. Middleware
+### Middleware
 
 **What it is:**
 Middleware is code that sits in the HTTP request pipeline and processes every request and response that passes through the application. Each piece of middleware can inspect or modify the request, call the next middleware in the chain, and then inspect or modify the response on the way back.
@@ -447,7 +418,7 @@ app.UseMiddleware<RequestTimingMiddleware>();
 Additional constructor dependencies (like `ILogger`) are resolved from DI automatically — you only need to pass `RequestDelegate next` yourself; everything else is injected.
 
 ---
-## 35. Middleware Order
+### Middleware Order
 
 **What it is:**
 The order in which you call `app.Use*()` in `Program.cs` is the order middleware executes on the way in, and the reverse on the way out. Getting this wrong causes bugs — for example, putting authorization before routing means the router never ran, so there's no endpoint to authorize.
@@ -494,7 +465,7 @@ Exception handling, auth, and HTTPS redirection haven't been added yet — they'
 Any middleware can stop the pipeline by not calling `await next(context)`. This is how auth middleware works — if the request isn't authenticated, it returns a `401` immediately and the endpoint never runs.
 
 ---
-## 36. Options Pattern
+### Options Pattern
 
 **What it is:**
 The Options pattern binds a section of `appsettings.json` to a strongly-typed C# class, and makes that class available via dependency injection. It's the recommended way to consume configuration in ASP.NET Core — instead of reading raw strings with `builder.Configuration["Key"]`, you work with a typed object.
@@ -547,7 +518,7 @@ app.MapGet("/config", (IOptions<GameStoreOptions> options) =>
 **Note:** The Options pattern is not yet used in this project — configuration is currently read directly with `GetConnectionString()`. It becomes more valuable as the app grows and has more configuration sections to manage.
 
 ---
-## 25. launchSettings.json
+### launchSettings.json
 
 **What it is:**
 A development-only configuration file in the `Properties/` folder that defines how the app starts when you run `dotnet run` or launch from an IDE.
@@ -574,8 +545,9 @@ The app is accessible at `http://localhost:5078` during development.
 
 ---
 
-## Data & EF Core
-## 6. Models & Entities
+## Data and EF Core
+
+### Models & Entities
 
 **What it is:**
 A **model** (also called an **entity**) is a C# class that represents a real-world thing your app works with. In EF Core, each model maps to a database table.
@@ -607,7 +579,7 @@ Key concepts here:
 - **`?` (nullable)**: The `?` means this can be null. `Genre?` means the Genre might not be loaded yet.
 
 ---
-## 7. Entity Framework Core (EF Core)
+### Entity Framework Core (EF Core)
 
 **What it is:**
 EF Core is an **Object-Relational Mapper (ORM)**. It lets you interact with a database using C# objects and LINQ instead of writing raw SQL queries.
@@ -797,7 +769,7 @@ SELECT * FROM Games LIMIT 10 OFFSET 20;
 ```
 
 ---
-## 8. DbContext
+### DbContext
 
 **What it is:**
 `DbContext` is the central class in EF Core. It represents a session with the database and gives you access to your tables through `DbSet<T>` properties.
@@ -821,7 +793,7 @@ public class GoGameShopContext(DbContextOptions<GoGameShopContext> options)
 - This class is registered as a service in `Program.cs` with `builder.Services.AddSqlite<GoGameShopContext>(connectionString)` and injected into endpoints automatically.
 
 ---
-## 9. Database Migrations
+### Database Migrations
 
 **What it is:**
 A migration is a snapshot of your database schema at a point in time. EF Core generates them automatically when you change your models, and applies them to create or update the real database.
@@ -857,7 +829,7 @@ dotnet ef database update                  # Apply pending migrations
 ```
 
 ---
-## 10. Database Seeding
+### Database Seeding
 
 **What it is:**
 Seeding means pre-populating the database with initial data when the app first starts.
@@ -889,7 +861,7 @@ private static async Task SeedDbAsync(this WebApplication app)
 - `await dbContext.SaveChangesAsync()` commits the inserts asynchronously — the thread is freed while the database write happens.
 
 ---
-## 19. AsNoTracking
+### AsNoTracking
 
 **What it is:**
 By default, EF Core tracks every entity it loads — it keeps a copy in memory to detect changes when you call `SaveChanges()`. `AsNoTracking()` disables this for a query.
@@ -909,7 +881,7 @@ dbContext.Games
 Used in `GET /games`, `GET /genres`, and `GET /ratings` — all pure read operations that return DTOs and never update the entities.
 
 ---
-## 20. ExecuteDelete
+### ExecuteDelete
 
 **What it is:**
 `ExecuteDelete()` is an EF Core method that translates directly into a SQL `DELETE` statement without loading the entity into memory first.
@@ -929,7 +901,7 @@ This generates: `DELETE FROM Games WHERE Id = @id`
 No entity is loaded into memory — it's a direct, efficient delete. `ExecuteDeleteAsync()` is the async version, returning a `Task` so the thread is free while the database processes the statement.
 
 ---
-## 21. Include (Eager Loading)
+### Include (Eager Loading)
 
 **What it is:**
 By default, EF Core does not load related entities (navigation properties). **Eager loading** with `Include()` tells it to load them in the same query using a SQL `JOIN`.
@@ -960,8 +932,9 @@ The `!` (null-forgiving operator) tells the compiler "I know this won't be null 
 
 ---
 
-## C# Language & Patterns
-## 11. Extension Methods
+## Language and Patterns
+
+### Extension Methods
 
 **What it is:**
 An extension method is a static method that "adds" new methods to an existing type without modifying its source code. You define it with the `this` keyword in the parameter list.
@@ -980,11 +953,11 @@ app.MapGames();  // Reads naturally — "app, map the games routes"
 
 This pattern is used everywhere:
 - `app.MapGames()` — registers game endpoints
-- `app.InitializeDb()` — runs migrations and seeds
+- `app.InitializeDbAsync()` — runs migrations and seeds (async)
 - `dbContext.Games.AsNoTracking()` — disables tracking (built into EF Core)
 
 ---
-## 12. Dependency Injection
+### Dependency Injection
 
 **What it is:**
 Dependency Injection (DI) is a design pattern where objects receive their dependencies (things they need) from the outside rather than creating them themselves. In ASP.NET Core, a built-in DI container manages this automatically.
@@ -1008,7 +981,7 @@ app.MapGet("/", (GoGameShopContext dbContext) =>
 ASP.NET Core sees the `GoGameShopContext` parameter and automatically creates and injects one per request. When the request ends, it disposes of it.
 
 ---
-## 15. C# Records
+### C# Records
 
 **What it is:**
 A `record` is a special C# type designed for immutable data objects. It auto-generates equality comparison, `ToString()`, and a constructor based on the properties you declare.
@@ -1033,7 +1006,7 @@ public class GameSummaryDto
 The record syntax on one line replaces what would be 30+ lines of a class.
 
 ---
-## 32. Delegates, Func & Action
+### Delegates, Func & Action
 
 **What a delegate is:**
 A delegate is a type that holds a reference to a method — it's essentially a variable that stores a function. You can pass it around, store it, and call it later just like calling the original method.
@@ -1125,7 +1098,7 @@ game => game.Price < 30
 ```
 
 ---
-## 33. Generics
+### Generics
 
 **What they are:**
 Generics let you write a class, method, or interface that works with *any* type, specified later by the caller. The type parameter is written in angle brackets: `<T>`.
@@ -1206,7 +1179,7 @@ T Create<T>() where T : new() => new T();
 EF Core's `DbContext.Set<T>()` uses `where T : class` — it only works with reference types, not primitives.
 
 ---
-## 22. Vertical Slice Architecture
+### Vertical Slice Architecture
 
 **What it is:**
 Vertical slicing organizes code by **feature** rather than by **technical layer**. Instead of folders named `Controllers/`, `Services/`, `Repositories/`, you have folders named by what they do.
@@ -1238,7 +1211,8 @@ Each folder is a self-contained "slice" of the application. Adding a new feature
 ---
 
 ## API Design
-## 13. Route Groups
+
+### Route Groups
 
 **What it is:**
 A route group lets you apply a common URL prefix to a set of endpoints, so you don't repeat it on every single one.
@@ -1263,7 +1237,7 @@ public static void MapGames(this IEndpointRouteBuilder app)
 Each child endpoint only defines its relative path (e.g., `/` or `/{id}`), not the full path.
 
 ---
-## 14. DTOs (Data Transfer Objects)
+### DTOs (Data Transfer Objects)
 
 **What it is:**
 A DTO is a simple object used to transfer data between layers — specifically between your API and its clients. It defines exactly what data to accept (input) or return (output), separate from your database model.
@@ -1294,7 +1268,7 @@ public record CreateGameDto([Required][StringLength(50)] string Name, Guid Genre
 Notice that `GameSummaryDto` returns `Genre` as a `string` (the genre name), while `GameDetailsDto` returns `GenreId` as a `Guid`. The summary flattens relationships for easy display; the details DTO returns IDs so a client can edit the game.
 
 ---
-## 16. Data Annotations & Validation
+### Data Annotations & Validation
 
 **What it is:**
 Data annotations are attributes (markers in square brackets) you put on DTO properties to declare validation rules. The framework enforces them automatically before your endpoint code runs.
@@ -1323,7 +1297,7 @@ Common annotations:
 - `[EmailAddress]` — must be a valid email format
 
 ---
-## 17. CRUD Endpoints
+### CRUD Endpoints
 
 **What it is:**
 CRUD stands for **Create, Read, Update, Delete** — the four fundamental operations on data. REST APIs map these to HTTP verbs: `POST`, `GET`, `PUT`/`PATCH`, `DELETE`.
@@ -1357,7 +1331,7 @@ return Results.NoContent();                      // 4. Return 204 — success, n
 EF Core "tracks" the entity retrieved by `FindAsync()`. When you mutate its properties and call `SaveChangesAsync()`, EF Core automatically generates the SQL `UPDATE` statement. All endpoint handlers are `async` so they free the thread while waiting for the database.
 
 ---
-## 18. HTTP Status Codes & Results
+### HTTP Status Codes & Results
 
 **What it is:**
 HTTP status codes are standardized numbers included in every response that tell the client what happened. `Results` is an ASP.NET Core helper for building responses with the correct code.
@@ -1376,14 +1350,14 @@ Results.CreatedAtRoute(...)   // 201 — Resource created, includes its URL in t
 
 **Pattern used in GET by ID:**
 ```csharp
-var game = dbContext.Games.Find(id);
+var game = await dbContext.Games.FindAsync(id);
 return game is null ? Results.NotFound() : Results.Ok(new GameDetailsDto(...));
 ```
 
 If the game doesn't exist, return 404. Otherwise return 200 with the data.
 
 ---
-## 23. Constants & Named Endpoints
+### Constants & Named Endpoints
 
 **What it is:**
 Instead of hardcoding a string like `"GetGame"` in multiple places, you define it once as a constant. Named endpoints give an endpoint an identifier that can be referenced elsewhere.
@@ -1412,7 +1386,7 @@ Results.CreatedAtRoute(EndpointNames.GetGame, new { id = game.Id }, dto)
 ```
 
 ---
-## 24. CreatedAtRoute
+### CreatedAtRoute
 
 **What it is:**
 `Results.CreatedAtRoute()` returns a `201 Created` HTTP response that includes a `Location` header pointing to the URL of the newly created resource.
@@ -1423,7 +1397,7 @@ REST convention says when you create a resource, you should tell the client wher
 **How it fits — `CreateGameEndpoint`:**
 ```csharp
 dbContext.Add(game);
-dbContext.SaveChanges();
+await dbContext.SaveChangesAsync();
 
 return Results.CreatedAtRoute(
     EndpointNames.GetGame,     // Name of the endpoint to generate the URL from
@@ -1440,7 +1414,8 @@ The response will have:
 ---
 
 ## Async Programming
-## 26. Async/Await
+
+### Async/Await
 
 **What it is:**
 `async` and `await` are C# keywords that let you write non-blocking code that reads like synchronous code. An `async` method can pause at an `await` expression and release the thread while it waits for a result — without blocking.
@@ -1467,7 +1442,7 @@ Rules:
 - You can only `await` at the top level of a .NET 10 application (like `Program.cs`) because .NET now supports top-level async entry points.
 
 ---
-## 27. The Task Type
+### The Task Type
 
 **What it is:**
 `Task` is C#'s representation of an ongoing asynchronous operation. Think of it as a promise: "this will eventually produce a result (or finish) in the future."
@@ -1506,7 +1481,7 @@ public async Task<List<Game>> GetGamesAsync()
 - `await Task.WhenAny(task1, task2)` — wait for whichever finishes first
 
 ---
-## 28. ValueTask & .AsTask()
+### ValueTask & .AsTask()
 
 **What `ValueTask` is:**
 `ValueTask<T>` is a lightweight alternative to `Task<T>` that avoids heap allocation when a result is available immediately (synchronously). EF Core's `FindAsync()` returns `ValueTask<T>` for this reason — if the entity is already in the context's cache, no real async work is needed.
@@ -1538,7 +1513,7 @@ await Task.WhenAll(task, someOtherTask);
 - Storing or passing around an async operation as a `Task`
 
 ---
-## 29. ContinueWith
+### ContinueWith
 
 **What it is:**
 `ContinueWith()` is a method on `Task` that schedules a callback to run when the task completes. It's the older, explicit way to chain async operations — it predates `async/await` syntax.
