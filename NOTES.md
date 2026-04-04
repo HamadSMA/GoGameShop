@@ -2017,7 +2017,12 @@ async (GoGameShopContext dbContext, [AsParameters] GetGamesDto request) =>
 {
     var skipCount = (request.PageNumber - 1) * request.PageSize;
 
-    var gamesOnPage = await dbContext.Games
+    var filteredGames = dbContext.Games
+        .Where(game =>
+            string.IsNullOrWhiteSpace(request.Name)
+            || EF.Functions.Like(game.Name, $"%{request.Name}%"));
+
+    var gamesOnPage = await filteredGames
         .OrderBy(game => game.Name)
         .Skip(skipCount)
         .Take(request.PageSize)
@@ -2027,7 +2032,7 @@ async (GoGameShopContext dbContext, [AsParameters] GetGamesDto request) =>
         .AsNoTracking()
         .ToListAsync();
 
-    var totalGames = await dbContext.Games.CountAsync();
+    var totalGames = await filteredGames.CountAsync();
     var totalPages = (int)Math.Ceiling(totalGames / (double)request.PageSize);
 
     return new GamesPageDto(totalPages, gamesOnPage);
@@ -2040,7 +2045,7 @@ Breaking it down:
 - **`.Skip(skipCount)`** — skips that many rows (translated to SQL `OFFSET`).
 - **`.Take(request.PageSize)`** — takes only `pageSize` rows (translated to SQL `LIMIT`).
 - **`.OrderBy(game => game.Name)`** — pagination without an `OrderBy` is non-deterministic; the database can return rows in any order, so the same record can appear on two different pages. Always sort when paginating.
-- **`CountAsync()`** — runs a separate `SELECT COUNT(*) FROM Games` to get the total, without loading all rows.
+- **`filteredGames.CountAsync()`** — runs a separate `SELECT COUNT(*) FROM Games WHERE ...` scoped to the same filter, so total pages reflect only matching records.
 - **`Math.Ceiling(totalGames / (double)request.PageSize)`** — divides total rows by page size, rounding up so the last partial page is still counted. The cast to `double` is necessary — integer division would truncate (e.g. `11 / 5 = 2` instead of `3`).
 
 The response is wrapped in `GamesPageDto` so the client knows how many pages exist:
@@ -2051,6 +2056,7 @@ public record GamesPageDto(int TotalPages, IEnumerable<GameSummaryDto> Games);
 The client sends page requests as query strings:
 ```
 GET /games?pageNumber=1&pageSize=10
+GET /games?pageNumber=1&pageSize=10&Name=metal
 ```
 
 ---
@@ -2068,15 +2074,79 @@ async (GoGameShopContext dbContext, int pageNumber = 1, int pageSize = 5) => { .
 
 **How it fits:**
 ```csharp
-public record GetGamesDto(int PageNumber = 1, int PageSize = 5);
+public record GetGamesDto(int PageNumber = 1, int PageSize = 5, string? Name = null);
 
 app.MapGet("/", async (GoGameShopContext dbContext, [AsParameters] GetGamesDto request) =>
 {
-    // request.PageNumber and request.PageSize come from ?pageNumber=&pageSize=
+    // request.PageNumber, request.PageSize, and request.Name come from the query string
 });
 ```
 
-The default values (`PageNumber = 1, PageSize = 5`) are used when the client omits those query parameters — so `GET /games` works the same as `GET /games?pageNumber=1&pageSize=5`.
+The default values (`PageNumber = 1, PageSize = 5`) are used when the client omits those query parameters — so `GET /games` works the same as `GET /games?pageNumber=1&pageSize=5`. `Name` defaults to `null`, meaning no filter is applied when the client omits it.
+
+---
+### Search Filtering
+
+**What it is:**
+Search filtering lets clients narrow results by providing a query parameter. Instead of returning every game, the endpoint returns only games whose names contain the search term.
+
+**Why it's used:**
+Pagination reduces *how many* records come back at once. Filtering reduces *which* records come back at all. Together they make browsing a large catalog practical.
+
+**How it fits — `GetGamesEndpoint`:**
+
+The filter is optional — if the client omits `Name`, all games are returned:
+```csharp
+public record GetGamesDto(int PageNumber = 1, int PageSize = 5, string? Name = null);
+```
+
+The filter is applied to a base query variable before pagination is layered on:
+```csharp
+var filteredGames = dbContext.Games
+    .Where(game =>
+        string.IsNullOrWhiteSpace(request.Name)
+        || EF.Functions.Like(game.Name, $"%{request.Name}%"));
+
+var gamesOnPage = await filteredGames
+    .OrderBy(game => game.Name)
+    .Skip(skipCount)
+    .Take(request.PageSize)
+    // ...
+    .ToListAsync();
+
+var totalGames = await filteredGames.CountAsync();
+```
+
+**`EF.Functions.Like`:**
+
+`EF.Functions.Like(column, pattern)` maps to SQL's `LIKE` operator. The `%` wildcard matches zero or more characters anywhere in the string:
+
+```csharp
+EF.Functions.Like(game.Name, $"%{request.Name}%")
+// SQL: Name LIKE '%metal%'  → matches any name containing "metal"
+```
+
+`EF.Functions.Like` is preferred over `.Contains()` because it translates directly to a SQL `LIKE` clause, which SQLite evaluates case-insensitively without any extra configuration.
+
+**Why the filter is a separate variable:**
+
+`filteredGames` is an `IQueryable<Game>` — it's a query *description*, not a result. EF Core doesn't hit the database until `.ToListAsync()` or `.CountAsync()` is called. Assigning it to a variable lets both the page fetch and the count query share the same filter without repeating it:
+
+```csharp
+var gamesOnPage = await filteredGames.Skip(...).Take(...).ToListAsync(); // one SQL query
+var totalGames  = await filteredGames.CountAsync();                       // another SQL query
+// Both are automatically scoped to the same WHERE clause
+```
+
+**Why `string.IsNullOrWhiteSpace` is used as the guard:**
+
+The `||` short-circuits — if `request.Name` is `null` or whitespace, EF Core skips the `Like` predicate entirely and the `Where` clause adds no filter. This is the correct pattern for optional filters: omit the filter when the value is absent, rather than filtering for an empty string (which would return no results).
+
+```
+GET /games                              → all games, paginated
+GET /games?Name=metal                   → games whose name contains "metal"
+GET /games?pageNumber=2&pageSize=5&Name=gear  → page 2 of results matching "gear"
+```
 
 ---
 

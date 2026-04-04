@@ -75,7 +75,7 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `GET` | `/games` | Get a paginated list of games (supports `pageNumber` and `pageSize` query params) |
+| `GET` | `/games` | Get a paginated, searchable list of games (supports `pageNumber`, `pageSize`, and `Name` query params) |
 | `GET` | `/games/{id}` | Get a single game by ID |
 | `POST` | `/games` | Create a new game |
 | `PUT` | `/games/{id}` | Update an existing game |

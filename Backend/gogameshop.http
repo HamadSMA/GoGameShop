@@ -1,6 +1,6 @@
 ### GET all games
 
-GET http://localhost:5078/games?pageNumber=1&pageSize=10
+GET http://localhost:5078/games?pageNumber=1&pageSize=10&Name=metal
 
 ### GET game
 
