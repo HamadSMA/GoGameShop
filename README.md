@@ -75,7 +75,7 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `GET` | `/games` | Get all games (returns lightweight summary with genre/rating names) |
+| `GET` | `/games` | Get a paginated list of games (supports `pageNumber` and `pageSize` query params) |
 | `GET` | `/games/{id}` | Get a single game by ID |
 | `POST` | `/games` | Create a new game |
 | `PUT` | `/games/{id}` | Update an existing game |
@@ -146,8 +146,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ```
 ▓▓▓▓▓▓▓▓▓▓  REST API, CRUD, DTOs, EF Core, SQLite, Vertical Slice Architecture
-▓▓▓▓░░░░░░  Async/Await, Structured Logging, HTTP Logging, Custom Middleware, Error Handling
-░░░░░░░░░░  Pagination, OpenAPI
+▓▓▓▓▓▓▓░░░  Async/Await, Structured Logging, HTTP Logging, Custom Middleware, Error Handling, Pagination, Search, OpenAPI
 ░░░░░░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
 ░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
 ░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire

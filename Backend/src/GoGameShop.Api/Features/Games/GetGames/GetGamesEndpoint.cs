@@ -9,9 +9,15 @@ public static class GetGamesEndpoint
         // GET /games
         app.MapGet(
             "/",
-            async (GoGameShopContext dbContext) =>
-                await dbContext
-                    .Games.Include(game => game.Genre)
+            async (GoGameShopContext dbContext, [AsParameters] GetGamesDto request) =>
+            {
+                var skipCount = (request.PageNumber - 1) * request.PageSize;
+
+                var gamesOnPage = await dbContext.Games
+                    .OrderBy(game => game.Name)
+                    .Skip(skipCount)
+                    .Take(request.PageSize)
+                    .Include(game => game.Genre)
                     .Include(game => game.Rating)
                     .Select(game => new GameSummaryDto(
                         game.Id,
@@ -22,7 +28,13 @@ public static class GetGamesEndpoint
                         game.ReleaseDate
                     ))
                     .AsNoTracking()
-                    .ToListAsync()
+                    .ToListAsync();
+
+                var totalGames = await dbContext.Games.CountAsync();
+                var totalPages = (int)Math.Ceiling(totalGames / (double)request.PageSize);
+
+                return new GamesPageDto(totalPages, gamesOnPage);
+            }
         );
     }
 }

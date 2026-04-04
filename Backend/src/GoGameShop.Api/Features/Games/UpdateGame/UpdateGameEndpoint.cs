@@ -5,14 +5,11 @@ public static class UpdateGameEndpoint
     public static void MapUpdateGame(this IEndpointRouteBuilder app)
     {
         // PUT /games/{id}
-        app.MapPut("/{id}", async (Guid id, GoGameShopContext dbContext, UpdateGameDto gameDto) =>
+        app.MapPut("/{id}", async (Guid id, GoGameShopContext DbContext, UpdateGameDto gameDto) =>
         {
-            var game = await dbContext.Games.FindAsync(id);
+            var game = await DbContext.Games.FindAsync(id);
 
-            if (game is null)
-            {
-                return Results.NotFound("Game not found");
-            }
+            if (game is null) return Results.NotFound("Game not found");
 
             game.Name = gameDto.Name;
             game.GenreId = gameDto.GenreId;
@@ -20,12 +17,10 @@ public static class UpdateGameEndpoint
             game.ReleaseDate = gameDto.ReleaseDate;
             game.Price = gameDto.Price;
             game.Description = gameDto.Description;
-            
-            await dbContext.SaveChangesAsync();
-            
+
+            await DbContext.SaveChangesAsync();
+
             return Results.NoContent();
-
         });
-
     }
 }

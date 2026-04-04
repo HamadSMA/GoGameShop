@@ -1,14 +1,25 @@
+### GET all games
 
-GET http://localhost:5078/games
-###
+GET http://localhost:5078/games?pageNumber=1&pageSize=10
+
+### GET game
+
 GET http://localhost:5078/games/57f0a570-a51f-4964-b4bd-3c02f4b3e90f
-###
+
+### GET all Genres
+
 GET http://localhost:5078/genres
-###
+
+### GET all Ratings
+
 GET http://localhost:5078/ratings
-###
+
+### DELETE a game
+
 DELETE http://localhost:5078/games/BBD0BD40-2A18-40E7-A1EB-4DA36752F444
-###
+
+### CREATE a game
+
 POST http://localhost:5078/games/
 Content-Type: application/json
 
@@ -21,7 +32,8 @@ Content-Type: application/json
   "description": "Final Fantasy VII Remake is a modern reimagining of the 1997 PlayStation classic."
 }
 
-###
+### UPDATE a game
+
 PUT http://localhost:5078/games/184E8E4B-5BF6-4A0D-A0C5-3276FAA37AE7
 Content-Type: application/json
 
@@ -33,4 +45,6 @@ Content-Type: application/json
   "price": 60.99,
   "description": "Metal Gear Solid V: The Phantom Pain is an action-adventure stealth game developed by Kojima Productions and published by Konami. It was released in 2015 for PlayStation 3, PlayStation 4, Xbox 360, Xbox One, and Microsoft Windows."
 }
+
+###
 

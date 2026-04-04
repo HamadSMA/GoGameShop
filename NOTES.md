@@ -2002,6 +2002,83 @@ if (!app.Environment.IsDevelopment())
 | Multiple handlers | No | Yes — register many, each can handle or pass |
 
 ---
+### Pagination
+
+**What it is:**
+Pagination splits a large list of results into smaller pages, returning a fixed number of records at a time rather than the entire dataset. The client requests a specific page number and page size; the server returns that slice of data along with the total number of pages.
+
+**Why it's used:**
+Returning every row in a table in a single response is expensive — it wastes bandwidth, slows the client down, and puts unnecessary load on the database. Pagination makes large lists manageable at every layer.
+
+**How it fits — `GetGamesEndpoint`:**
+
+```csharp
+async (GoGameShopContext dbContext, [AsParameters] GetGamesDto request) =>
+{
+    var skipCount = (request.PageNumber - 1) * request.PageSize;
+
+    var gamesOnPage = await dbContext.Games
+        .OrderBy(game => game.Name)
+        .Skip(skipCount)
+        .Take(request.PageSize)
+        .Include(game => game.Genre)
+        .Include(game => game.Rating)
+        .Select(game => new GameSummaryDto(...))
+        .AsNoTracking()
+        .ToListAsync();
+
+    var totalGames = await dbContext.Games.CountAsync();
+    var totalPages = (int)Math.Ceiling(totalGames / (double)request.PageSize);
+
+    return new GamesPageDto(totalPages, gamesOnPage);
+}
+```
+
+Breaking it down:
+
+- **`(request.PageNumber - 1) * request.PageSize`** — page 1 starts at offset 0, page 2 at offset `pageSize`, etc.
+- **`.Skip(skipCount)`** — skips that many rows (translated to SQL `OFFSET`).
+- **`.Take(request.PageSize)`** — takes only `pageSize` rows (translated to SQL `LIMIT`).
+- **`.OrderBy(game => game.Name)`** — pagination without an `OrderBy` is non-deterministic; the database can return rows in any order, so the same record can appear on two different pages. Always sort when paginating.
+- **`CountAsync()`** — runs a separate `SELECT COUNT(*) FROM Games` to get the total, without loading all rows.
+- **`Math.Ceiling(totalGames / (double)request.PageSize)`** — divides total rows by page size, rounding up so the last partial page is still counted. The cast to `double` is necessary — integer division would truncate (e.g. `11 / 5 = 2` instead of `3`).
+
+The response is wrapped in `GamesPageDto` so the client knows how many pages exist:
+```csharp
+public record GamesPageDto(int TotalPages, IEnumerable<GameSummaryDto> Games);
+```
+
+The client sends page requests as query strings:
+```
+GET /games?pageNumber=1&pageSize=10
+```
+
+---
+### AsParameters — Binding Query Strings to Records
+
+**What it is:**
+`[AsParameters]` is a Minimal API attribute that tells ASP.NET Core to bind a complex object from the request instead of treating it as a JSON body. Query string values, route values, and headers are mapped by name to the record's properties.
+
+**Why it's used:**
+Without `[AsParameters]`, ASP.NET Core assumes any object parameter in a Minimal API handler comes from the JSON request body. For query string parameters you'd normally have to list each one individually:
+```csharp
+async (GoGameShopContext dbContext, int pageNumber = 1, int pageSize = 5) => { ... }
+```
+`[AsParameters]` lets you group them into a record instead, keeping the handler signature clean.
+
+**How it fits:**
+```csharp
+public record GetGamesDto(int PageNumber = 1, int PageSize = 5);
+
+app.MapGet("/", async (GoGameShopContext dbContext, [AsParameters] GetGamesDto request) =>
+{
+    // request.PageNumber and request.PageSize come from ?pageNumber=&pageSize=
+});
+```
+
+The default values (`PageNumber = 1, PageSize = 5`) are used when the client omits those query parameters — so `GET /games` works the same as `GET /games?pageNumber=1&pageSize=5`.
+
+---
 
 ## Async Programming
 

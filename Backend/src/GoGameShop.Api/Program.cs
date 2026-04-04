@@ -1,4 +1,3 @@
-using GoGameShop.Api.Shared.ErrorHandling;
 using Microsoft.AspNetCore.HttpLogging;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +8,7 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddSqlite<GoGameShopContext>(connectionString);
 builder.Services.AddValidation();
+
 builder.Services.AddHttpLogging(options =>
 {
     options.LoggingFields =
@@ -30,9 +30,7 @@ app.MapGetRatings();
 app.UseHttpLogging();
 
 if (!app.Environment.IsDevelopment())
-{
     app.UseExceptionHandler();
-}
 
 app.UseStatusCodePages();
 

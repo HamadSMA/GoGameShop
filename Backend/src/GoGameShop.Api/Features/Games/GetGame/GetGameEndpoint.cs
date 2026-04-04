@@ -1,6 +1,3 @@
-using System.Diagnostics;
-using Microsoft.Data.Sqlite;
-
 namespace GoGameShop.Api.Features.Games.GetGame;
 
 public static class GetGameEndpoint
@@ -10,7 +7,7 @@ public static class GetGameEndpoint
         // GET /games/{id}
         app.MapGet(
                 "/{id}",
-                async (Guid id, GoGameShopContext dbContext, ILogger<Program> logger) =>
+                async (Guid id, GoGameShopContext dbContext) =>
                 {
                     var game = await dbContext.Games.FindAsync(id);
                     return game is null

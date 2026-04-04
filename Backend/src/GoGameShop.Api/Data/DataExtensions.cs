@@ -24,8 +24,7 @@ public static class DataExtensions
         var dbContext = scope.ServiceProvider.GetRequiredService<GoGameShopContext>();
 
         if (!dbContext.Genres.Any())
-        {
-            // When we don't provide an ID, the Databases Provider will generate one for us.
+            // When we don't provide an ID, the Database Provider will generate one for us.
             dbContext.Genres.AddRange(
                 new Genre { Name = "Action" },
                 new Genre { Name = "Adventure" },
@@ -37,16 +36,13 @@ public static class DataExtensions
                 new Genre { Name = "Racing" },
                 new Genre { Name = "Fighting" }
             );
-        }
 
         if (!dbContext.Ratings.Any())
-        {
             dbContext.Ratings.AddRange(
                 new Rating { Name = "Everyone" },
                 new Rating { Name = "Teen" },
                 new Rating { Name = "Mature" }
             );
-        }
 
         await dbContext.SaveChangesAsync();
     }
