@@ -21,7 +21,8 @@ namespace GoGameShop.Api.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Genres", x => x.Id);
-                });
+                }
+            );
 
             migrationBuilder.CreateTable(
                 name: "Ratings",
@@ -33,7 +34,8 @@ namespace GoGameShop.Api.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Ratings", x => x.Id);
-                });
+                }
+            );
 
             migrationBuilder.CreateTable(
                 name: "Games",
@@ -55,37 +57,39 @@ namespace GoGameShop.Api.Data.Migrations
                         column: x => x.GenreId,
                         principalTable: "Genres",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Cascade
+                    );
                     table.ForeignKey(
                         name: "FK_Games_Ratings_RatingId",
                         column: x => x.RatingId,
                         principalTable: "Ratings",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                        onDelete: ReferentialAction.Cascade
+                    );
+                }
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_Games_GenreId",
                 table: "Games",
-                column: "GenreId");
+                column: "GenreId"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_Games_RatingId",
                 table: "Games",
-                column: "RatingId");
+                column: "RatingId"
+            );
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Games");
+            migrationBuilder.DropTable(name: "Games");
 
-            migrationBuilder.DropTable(
-                name: "Genres");
+            migrationBuilder.DropTable(name: "Genres");
 
-            migrationBuilder.DropTable(
-                name: "Ratings");
+            migrationBuilder.DropTable(name: "Ratings");
         }
     }
 }

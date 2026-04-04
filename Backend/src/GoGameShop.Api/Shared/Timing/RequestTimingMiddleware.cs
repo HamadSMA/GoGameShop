@@ -17,10 +17,13 @@ public class RequestTimingMiddleware(RequestDelegate next, ILogger<RequestTiming
         {
             stopwatch.Stop();
             var elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
-            logger.LogInformation("{RequestedMethod} {RequestedPath} completed with status  {status} in {ElapsedMilliseconds} ms",
+            logger.LogInformation(
+                "{RequestedMethod} {RequestedPath} completed with status  {status} in {ElapsedMilliseconds} ms",
                 context.Request.Method,
                 context.Request.Path,
                 context.Response.StatusCode,
-                elapsedMilliseconds);}
+                elapsedMilliseconds
+            );
+        }
     }
 }

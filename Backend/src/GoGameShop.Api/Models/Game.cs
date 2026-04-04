@@ -11,5 +11,4 @@ public class Game
     public DateOnly ReleaseDate { get; set; }
     public decimal Price { get; set; }
     public required string Description { get; set; }
-
 }

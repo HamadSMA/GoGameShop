@@ -4,7 +4,6 @@ namespace GoGameShop.Api.Data;
 
 public static class DataExtensions
 {
-    
     public static async Task InitializeDbAsync(this WebApplication app)
     {
         await app.MigrateDbAsync();
@@ -42,13 +41,13 @@ public static class DataExtensions
 
         if (!dbContext.Ratings.Any())
         {
-             dbContext.Ratings.AddRange(
+            dbContext.Ratings.AddRange(
                 new Rating { Name = "Everyone" },
                 new Rating { Name = "Teen" },
                 new Rating { Name = "Mature" }
             );
         }
-        
+
         await dbContext.SaveChangesAsync();
     }
 }

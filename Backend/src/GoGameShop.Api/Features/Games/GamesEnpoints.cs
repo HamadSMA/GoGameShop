@@ -4,7 +4,6 @@ public static class GamesEndpoints
 {
     public static void MapGames(this IEndpointRouteBuilder app)
     {
-
         var games = app.MapGroup("/games");
 
         games.MapGetGames();

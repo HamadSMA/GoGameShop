@@ -125,6 +125,121 @@ app.Run()               // Start listening for requests
 ```
 
 ---
+### Key ASP.NET Core Classes and Interfaces
+
+A quick reference for the most important types in ASP.NET Core and the methods you'll call most often.
+
+---
+
+**`WebApplicationBuilder`** — configures everything before the app starts
+
+| Member | What it does |
+|--------|-------------|
+| `builder.Services` | `IServiceCollection` — register services into DI |
+| `builder.Configuration` | `ConfigurationManager` — read config values |
+| `builder.Logging` | `ILoggingBuilder` — configure logging providers |
+| `builder.Environment` | `IWebHostEnvironment` — check current environment |
+| `builder.Build()` | Locks in all registrations and returns the `WebApplication` |
+
+---
+
+**`WebApplication`** — the running app; doubles as the middleware pipeline and route builder
+
+| Member | What it does |
+|--------|-------------|
+| `app.MapGet/Post/Put/Delete(path, handler)` | Register a route endpoint |
+| `app.MapGroup(prefix)` | Create a route group with a shared URL prefix |
+| `app.Use(middleware)` | Add inline middleware |
+| `app.UseMiddleware<T>()` | Add a class-based middleware |
+| `app.UseRouting()` | Enable endpoint routing |
+| `app.UseAuthentication()` | Identify who the user is |
+| `app.UseAuthorization()` | Check if they're allowed |
+| `app.UseHttpLogging()` | Log each request and response |
+| `app.Run()` / `app.RunAsync()` | Start the server |
+| `app.Services` | Resolve services from the DI container |
+| `app.Logger` | Built-in `ILogger` scoped to the app |
+| `app.Configuration` | Access config (same data as `builder.Configuration`) |
+| `app.Environment` | Access environment info |
+
+---
+
+**`HttpContext`** — represents the full HTTP transaction for one request; passed through the middleware pipeline
+
+| Member | What it does |
+|--------|-------------|
+| `context.Request.Method` | HTTP verb: `GET`, `POST`, etc. |
+| `context.Request.Path` | Request path: `/games/123` |
+| `context.Request.Query["key"]` | Query string value |
+| `context.Request.Headers["key"]` | Request header value |
+| `context.Response.StatusCode` | Set or read the response status code |
+| `context.Response.Headers` | Set response headers |
+| `context.User` | The authenticated user (`ClaimsPrincipal`) |
+| `context.Items` | Key/value store for sharing data between middleware in one request |
+| `context.RequestAborted` | `CancellationToken` that fires if the client disconnects |
+
+---
+
+**`IServiceCollection`** — the DI registration registry; available as `builder.Services`
+
+| Method | What it does |
+|--------|-------------|
+| `AddSingleton<T>()` | One shared instance for the entire app lifetime |
+| `AddScoped<T>()` | One instance per HTTP request |
+| `AddTransient<T>()` | New instance every time it's resolved |
+| `AddSqlite<TContext>()` | Register an EF Core `DbContext` with SQLite |
+| `AddHttpLogging()` | Register and configure HTTP logging middleware |
+| `AddValidation()` | Enable automatic model validation on endpoints |
+| `Configure<TOptions>()` | Bind a config section to a typed options class |
+
+---
+
+**`ILogger<T>`** — structured logging; injected via DI or accessed as `app.Logger`
+
+| Method | When to use |
+|--------|------------|
+| `LogTrace()` | Extremely detailed; disabled by default |
+| `LogDebug()` | Diagnostic info for development |
+| `LogInformation()` | Normal operational events ("Game created") |
+| `LogWarning()` | Unexpected but non-fatal |
+| `LogError()` | Failures that need attention |
+| `LogCritical()` | App-breaking failures |
+| `IsEnabled(LogLevel)` | Check if a level is active before building an expensive message |
+
+---
+
+**`IConfiguration`** — reads config from `appsettings.json`, environment variables, and other sources
+
+| Method | What it does |
+|--------|-------------|
+| `GetValue<T>("key")` | Read a single typed value |
+| `GetSection("key")` | Get a subsection as `IConfigurationSection` |
+| `GetConnectionString("name")` | Shorthand for the `ConnectionStrings` section |
+| `["key"]` indexer | Read a raw string value |
+
+---
+
+**`IWebHostEnvironment`** — available as `app.Environment` or `builder.Environment`
+
+| Member | What it does |
+|--------|-------------|
+| `IsDevelopment()` | True when `ASPNETCORE_ENVIRONMENT` is `"Development"` |
+| `IsProduction()` | True in production |
+| `IsStaging()` | True in staging |
+| `EnvironmentName` | The raw environment name string |
+
+---
+
+**`IEndpointRouteBuilder`** — the interface behind `WebApplication` and route groups for registering endpoints; used as the parameter type in extension methods like `MapGames(this IEndpointRouteBuilder app)`
+
+| Method | What it does |
+|--------|-------------|
+| `MapGet(pattern, handler)` | Register a GET endpoint |
+| `MapPost(pattern, handler)` | Register a POST endpoint |
+| `MapPut(pattern, handler)` | Register a PUT endpoint |
+| `MapDelete(pattern, handler)` | Register a DELETE endpoint |
+| `MapGroup(prefix)` | Create a sub-group with a shared URL prefix |
+
+---
 ### The .csproj File — Project Configuration
 
 **What it is:**
@@ -1179,6 +1294,140 @@ T Create<T>() where T : new() => new T();
 EF Core's `DbContext.Set<T>()` uses `where T : class` — it only works with reference types, not primitives.
 
 ---
+### Exception Handling
+
+When something goes wrong at runtime — a null value where one wasn't expected, a database that can't be reached, a value that's out of range — C# surfaces that as an **exception**. An exception is an object that carries information about the failure: what went wrong, where, and a full stack trace. If you don't handle it, the runtime unwinds the call stack and crashes the request (or the whole app).
+
+The mechanism for handling exceptions is `try/catch/finally`:
+
+```csharp
+try
+{
+    // Code that might throw
+    var game = await dbContext.Games.FindAsync(id);
+    game.Price = newPrice;  // throws NullReferenceException if game is null
+    await dbContext.SaveChangesAsync();
+}
+catch (NullReferenceException ex)
+{
+    // Runs only if a NullReferenceException was thrown
+    logger.LogError("Game not found: {Message}", ex.Message);
+}
+finally
+{
+    // Always runs — whether an exception was thrown or not
+    stopwatch.Stop();
+}
+```
+
+The `finally` block is guaranteed to run regardless of what happens in `try` — on success, on exception, even if a `return` statement exits early. This makes it the right place for cleanup that must always happen: stopping a timer, closing a file, releasing a resource. This is exactly how `RequestTimingMiddleware` in this project works — the stopwatch log is in `finally` so it fires even if the next middleware throws.
+
+---
+
+**Catching specific exceptions**
+
+You can stack multiple `catch` blocks to handle different failure types differently. The runtime checks them top to bottom and runs the first one that matches — so always put specific exceptions before general ones:
+
+```csharp
+try
+{
+    var value = int.Parse(input);
+}
+catch (FormatException ex)
+{
+    // input was not a valid number
+}
+catch (OverflowException ex)
+{
+    // input was a valid number but too large for int
+}
+catch (Exception ex)
+{
+    // catch-all — handles anything not caught above
+    // be careful: this swallows every possible exception
+}
+```
+
+If you put `catch (Exception ex)` first, it will match everything and the specific blocks below it will never run. The compiler won't stop you — it'll just silently swallow exceptions you didn't intend to catch.
+
+---
+
+**The `when` filter**
+
+`when` lets you add a condition to a `catch` block. If the condition is false, the block is skipped and the exception keeps propagating — as if that `catch` wasn't there:
+
+```csharp
+catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+{
+    // only handles 404s — other HttpRequestExceptions are not caught here
+}
+```
+
+---
+
+**Re-throwing**
+
+If you catch an exception but can't fully handle it, you can re-throw it. There's an important difference:
+
+```csharp
+catch (Exception ex)
+{
+    logger.LogError(ex, "Something went wrong");
+
+    throw;      // re-throws the original exception, preserving the full stack trace
+
+    throw ex;   // DON'T do this — resets the stack trace to this line,
+                // making the original call site invisible in logs
+}
+```
+
+Always use bare `throw`, never `throw ex`. Losing the original stack trace makes debugging significantly harder.
+
+---
+
+**Common exceptions and when you encounter them**
+
+| Exception | When it happens |
+|-----------|----------------|
+| `NullReferenceException` | You called a method or accessed a property on a `null` object |
+| `ArgumentNullException` | You passed `null` to a parameter that doesn't allow it |
+| `ArgumentException` | You passed an invalid argument (wrong format, out-of-range value) |
+| `ArgumentOutOfRangeException` | An index or value is outside the allowed range |
+| `InvalidOperationException` | You called a method at the wrong time (e.g., reading from a closed stream) |
+| `KeyNotFoundException` | You looked up a key in a dictionary that doesn't exist |
+| `NotImplementedException` | A method has no implementation yet — placeholder, should never reach production |
+| `FormatException` | A string couldn't be parsed into the expected type (`int.Parse("abc")`) |
+| `OverflowException` | A numeric operation exceeded the type's limit |
+| `IOException` | A file or stream operation failed |
+| `DbUpdateException` | EF Core couldn't save changes — constraint violation, connection issue, etc. |
+| `OperationCanceledException` | An async operation was cancelled (e.g., client disconnected) |
+
+---
+
+**Don't use exceptions for control flow**
+
+Exceptions are expensive — throwing one allocates an object and unwinds the stack. More importantly, code that uses exceptions as an expected branch is hard to read:
+
+```csharp
+// BAD — using exception as an if/else
+try
+{
+    var game = dbContext.Games.Single(g => g.Id == id);
+    return Results.Ok(game);
+}
+catch (InvalidOperationException)
+{
+    return Results.NotFound();
+}
+
+// GOOD — use the method designed for this case
+var game = await dbContext.Games.FindAsync(id);
+return game is null ? Results.NotFound() : Results.Ok(game);
+```
+
+Reserve exceptions for genuinely unexpected failures — things that shouldn't happen in normal operation. For expected cases like "record not found", use return values (`null`, `bool`, `Result` types) instead.
+
+---
 ### Vertical Slice Architecture
 
 **What it is:**
@@ -1207,6 +1456,217 @@ Features/
 ```
 
 Each folder is a self-contained "slice" of the application. Adding a new feature means adding a new folder, not modifying multiple existing layers.
+
+---
+### LINQ (Language Integrated Query)
+
+**What it is:**
+LINQ is a set of C# methods for filtering, transforming, and aggregating collections — arrays, lists, database results, anything that implements `IEnumerable<T>` or `IQueryable<T>`.
+
+**Why it's used:**
+Instead of writing `foreach` loops to search or reshape data, LINQ lets you express *what* you want in a readable, chainable style. EF Core also translates LINQ calls directly into SQL.
+
+**Methods:**
+
+`All(predicate)` — returns `true` only if every item matches the condition:
+```csharp
+bool allCheap = games.All(g => g.Price < 100);
+// true only if every game costs less than 100
+```
+
+`Sum(selector)` — adds up a numeric property across all items:
+```csharp
+decimal total = games.Sum(g => g.Price);
+```
+
+`Min(selector)` / `Max(selector)` — finds the smallest or largest value of a property:
+```csharp
+decimal cheapest = games.Min(g => g.Price);
+decimal priciest = games.Max(g => g.Price);
+```
+
+**Chaining:**
+LINQ methods can be chained — each one returns a new collection that the next method operates on:
+```csharp
+var results = games
+    .Where(g => g.Price < 60)      // filter first
+    .OrderBy(g => g.Name)          // then sort
+    .Select(g => new { g.Name, g.Price }); // then reshape
+```
+
+**Deferred vs immediate execution:**
+Most LINQ methods are *deferred* — the query only runs when you iterate (e.g. `foreach`, `ToList()`). Methods like `Count()`, `First()`, `Any()`, and `Sum()` execute immediately.
+
+---
+### Common C# Built-in Methods
+
+**What they are:**
+The .NET standard library ships with utility methods on strings, collections, arrays, and more. These are the ones you'll reach for constantly.
+
+---
+
+**String methods:**
+
+`ToLower()` / `ToUpper()` — converts all characters to lowercase or uppercase:
+```csharp
+"Hello".ToLower() // "hello"
+"Hello".ToUpper() // "HELLO"
+```
+
+`Trim()` — removes leading and trailing whitespace:
+```csharp
+"  hello  ".Trim() // "hello"
+```
+
+`Contains(value)` — returns `true` if the string includes the given substring:
+```csharp
+"Hello, World".Contains("World") // true
+```
+
+`StartsWith(value)` / `EndsWith(value)` — checks whether the string begins or ends with a given value:
+```csharp
+"Hello".StartsWith("He") // true
+"Hello".EndsWith("lo")   // true
+```
+
+`Replace(old, new)` — swaps every occurrence of one substring with another:
+```csharp
+"Hello World".Replace("World", "C#") // "Hello C#"
+```
+
+`Split(separator)` — breaks the string into an array at each separator:
+```csharp
+"a,b,c".Split(",") // ["a", "b", "c"]
+```
+
+`Substring(startIndex, length)` — extracts a portion of the string starting at an index:
+```csharp
+"Hello World".Substring(6, 5) // "World"
+```
+
+`IndexOf(value)` — returns the position of the first occurrence of a substring, or `-1` if not found:
+```csharp
+"Hello World".IndexOf("World") // 6
+```
+
+`string.IsNullOrEmpty(s)` — returns `true` if the string is `null` or has zero characters:
+```csharp
+string.IsNullOrEmpty("")    // true
+string.IsNullOrEmpty(null)  // true
+string.IsNullOrEmpty("hi")  // false
+```
+
+`string.IsNullOrWhiteSpace(s)` — same as above, but also returns `true` for strings that are only spaces:
+```csharp
+string.IsNullOrWhiteSpace("   ") // true
+```
+
+`string.Join(separator, collection)` — combines a collection of strings into one, with a separator between each:
+```csharp
+string.Join(", ", new[] { "a", "b", "c" }) // "a, b, c"
+```
+
+---
+
+**List / collection methods:**
+
+`Add(item)` — appends an item to the end of the list:
+```csharp
+list.Add(9);
+```
+
+`Remove(item)` — removes the first occurrence of the given item:
+```csharp
+list.Remove(1); // removes the first 1 it finds
+```
+
+`Contains(item)` — returns `true` if the item exists in the list:
+```csharp
+list.Contains(4) // true
+```
+
+`Count` — a property (not a method) that returns the number of items:
+```csharp
+list.Count // 5
+```
+
+`Clear()` — removes all items from the list:
+```csharp
+list.Clear(); // list is now empty
+```
+
+`Sort()` — sorts the list in place (modifies the original list, returns nothing):
+```csharp
+list.Sort(); // [1, 1, 3, 4, 5]
+```
+
+`Reverse()` — reverses the order of items in place:
+```csharp
+list.Reverse(); // [5, 4, 3, 1, 1]
+```
+
+`ToArray()` / `ToList()` — converts between a list and an array:
+```csharp
+int[] arr = list.ToArray();
+List<int> back = arr.ToList();
+```
+
+---
+
+**Math methods:**
+
+`Math.Abs(n)` — returns the absolute (positive) value of a number:
+```csharp
+Math.Abs(-5) // 5
+```
+
+`Math.Round(n, decimals)` — rounds to the specified number of decimal places:
+```csharp
+Math.Round(3.567, 2) // 3.57
+```
+
+`Math.Floor(n)` — rounds *down* to the nearest whole number:
+```csharp
+Math.Floor(3.9) // 3
+```
+
+`Math.Ceiling(n)` — rounds *up* to the nearest whole number:
+```csharp
+Math.Ceiling(3.1) // 4
+```
+
+`Math.Max(a, b)` / `Math.Min(a, b)` — returns the larger or smaller of two values:
+```csharp
+Math.Max(10, 20) // 20
+Math.Min(10, 20) // 10
+```
+
+`Math.Pow(base, exponent)` — raises a number to a power:
+```csharp
+Math.Pow(2, 10) // 1024
+```
+
+`Math.Sqrt(n)` — returns the square root:
+```csharp
+Math.Sqrt(16) // 4
+```
+
+---
+
+**Convert / parse:**
+
+`int.TryParse(s, out result)` — tries to convert a string to an int. Returns `true`/`false` instead of throwing, and puts the result in the `out` variable:
+```csharp
+bool ok = int.TryParse("abc", out int n); // ok = false, n = 0
+bool ok2 = int.TryParse("42", out int m); // ok2 = true, m = 42
+```
+
+`ToString()` — converts any value to its string representation. Available on every type:
+```csharp
+42.ToString()   // "42"
+3.14.ToString() // "3.14"
+true.ToString() // "True"
+```
 
 ---
 
@@ -1410,6 +1870,136 @@ The response will have:
 - Status: `201 Created`
 - Header: `Location: /games/{new-game-id}`
 - Body: The created game's details
+
+---
+### Problem Details & Standardized Error Responses
+
+**What it is:**
+`AddProblemDetails()` registers ASP.NET Core's built-in support for the [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) standard — a consistent JSON format for HTTP error responses.
+
+Without it, a `404` returns an empty body. With it, the response is a structured object a client can reliably parse:
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "Not Found",
+  "status": 404
+}
+```
+
+**Why it's used:**
+API clients shouldn't have to guess what an error response looks like. Problem Details gives every error a consistent shape — status code, human-readable title, optional detail message. It's a recognized standard, so clients and tooling already understand it.
+
+**How it fits — `Program.cs`:**
+```csharp
+// Builder phase — register the service
+builder.Services.AddProblemDetails();
+
+// App phase — wire up the middleware
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler(); // catches unhandled exceptions, formats them as Problem Details
+}
+
+app.UseStatusCodePages(); // turns empty error responses (404, 405, etc.) into Problem Details
+```
+
+**The three pieces together:**
+
+| Call | What it does |
+|---|---|
+| `AddProblemDetails()` | Registers the service and formatter — nothing works without this |
+| `UseExceptionHandler()` | Catches unhandled exceptions and converts them to a `500` Problem Details response |
+| `UseStatusCodePages()` | Intercepts responses with an error status code and no body, and adds a Problem Details body |
+
+**Why `UseExceptionHandler()` is wrapped in `!IsDevelopment()`:**
+In development you want the full exception — stack trace, message, and all. `UseExceptionHandler()` would swallow that and return a generic `500`. Wrapping it in the environment check means dev gets the raw error and production gets the clean, safe response.
+
+---
+### Global Error Handler (`IExceptionHandler`)
+
+**What it is:**
+`IExceptionHandler` is an interface you implement to take full control of what happens when an unhandled exception reaches the pipeline. You register the class with `AddExceptionHandler<T>()` and it plugs into `UseExceptionHandler()` automatically.
+
+**Why it's used:**
+`UseExceptionHandler()` alone with `AddProblemDetails()` returns a generic `500` — no log, no trace ID, no customization. A custom `IExceptionHandler` lets you log the exception, attach a trace ID to the response, and return exactly the Problem Details shape you want.
+
+**How it fits — `GlobalErrorHandler.cs`:**
+```csharp
+public class GlobalErrorHandler(ILogger<GlobalErrorHandler> logger) : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        var traceId = Activity.Current?.TraceId;
+
+        logger.LogError(
+            exception,
+            "Could not process a request on machine {Machine}. TraceId {TraceId}",
+            Environment.MachineName,
+            traceId
+        );
+
+        await Results
+            .Problem(
+                title: "An error occurred while processing your request.",
+                statusCode: StatusCodes.Status500InternalServerError,
+                extensions: new Dictionary<string, object?> { { "traceId", traceId.ToString() } }
+            )
+            .ExecuteAsync(httpContext);
+
+        return true;
+    }
+}
+```
+
+**Breaking it down line by line:**
+
+`Activity.Current?.TraceId` — reads the current distributed trace ID. ASP.NET Core automatically starts a trace for every request. The `?.` means it returns `null` if there's no active trace, instead of throwing.
+
+`logger.LogError(exception, ...)` — logs the full exception (message + stack trace) at the `Error` level. The `exception` is passed as the first argument so the logger captures it properly — not just as a string, but as a structured object.
+
+`{Machine}` and `{TraceId}` — named placeholders in the log message. The values are stored as searchable properties in structured log output, not just embedded in a string.
+
+`Results.Problem(...)` — builds a Problem Details response manually, letting you set the title, status code, and any extra fields (`extensions`). Here the `traceId` is added so the client can report it when something goes wrong.
+
+`extensions` — an optional dictionary for extra fields in the Problem Details body. Here it injects the trace ID so the client can include it in a bug report:
+```json
+{
+  "title": "An error occurred while processing your request.",
+  "status": 500,
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"
+}
+```
+
+`.ExecuteAsync(httpContext)` — writes the response to the HTTP connection. `Results.Problem(...)` builds the response object but doesn't send it — you have to call `ExecuteAsync` manually inside `IExceptionHandler`.
+
+`return true` — tells the framework this handler handled the exception. If you return `false`, the framework keeps looking for another handler.
+
+**Registering it — `Program.cs`:**
+```csharp
+// builder phase
+builder.Services.AddExceptionHandler<GlobalErrorHandler>();
+builder.Services.AddProblemDetails();
+
+// app phase
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler();
+}
+```
+
+`AddExceptionHandler<GlobalErrorHandler>()` registers the handler in the DI container. `AddProblemDetails()` is still needed — it sets up the Problem Details formatter that `Results.Problem()` uses. `UseExceptionHandler()` activates the pipeline middleware that invokes registered handlers when an exception is thrown.
+
+**`IExceptionHandler` vs `UseExceptionHandler()` alone:**
+
+| | `UseExceptionHandler()` alone | With `IExceptionHandler` |
+|---|---|---|
+| Logs the exception | No | Yes — you control the log |
+| Includes trace ID | No | Yes — you add it to extensions |
+| Custom response shape | No | Yes — full control via `Results.Problem()` |
+| Multiple handlers | No | Yes — register many, each can handle or pass |
 
 ---
 

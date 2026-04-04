@@ -146,8 +146,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ```
 ▓▓▓▓▓▓▓▓▓▓  REST API, CRUD, DTOs, EF Core, SQLite, Vertical Slice Architecture
-▓▓▓░░░░░░░  Async/Await, Structured Logging, HTTP Logging, Custom Middleware
-░░░░░░░░░░  Error Handling, Pagination, OpenAPI
+▓▓▓▓░░░░░░  Async/Await, Structured Logging, HTTP Logging, Custom Middleware, Error Handling
+░░░░░░░░░░  Pagination, OpenAPI
 ░░░░░░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
 ░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
 ░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire

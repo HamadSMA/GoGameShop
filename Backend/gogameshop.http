@@ -7,30 +7,30 @@ GET http://localhost:5078/genres
 ###
 GET http://localhost:5078/ratings
 ###
-DELETE http://localhost:5078/games/69492d9a-4deb-44ba-aa1f-a5e6abc7f27b
+DELETE http://localhost:5078/games/BBD0BD40-2A18-40E7-A1EB-4DA36752F444
 ###
 POST http://localhost:5078/games/
 Content-Type: application/json
 
 {
-    "name": "Pandimonium",
-    "genreId": "2F77B8B2-2CA7-4DAB-A048-952955FBF10F",
-    "ratingId": "4A386C1B-7F13-45FC-9843-B3EEDCF674D7",
-    "releaseDate": "2020-04-10",
-    "price": 40.99,
-    "description": "Final Fantasy VII Remake is a modern reimagining of the 1997 PlayStation classic."
+  "name": "Pandimonium",
+  "genreId": "2F77B8B2-2CA7-4DAB-A048-952955FBF10F",
+  "ratingId": "4A386C1B-7F13-45FC-9843-B3EEDCF674D7",
+  "releaseDate": "2020-04-10",
+  "price": 40.99,
+  "description": "Final Fantasy VII Remake is a modern reimagining of the 1997 PlayStation classic."
 }
 
 ###
 PUT http://localhost:5078/games/184E8E4B-5BF6-4A0D-A0C5-3276FAA37AE7
 Content-Type: application/json
 
-{   
+{
   "name": "Metal Gear Solid V: The Phantom Pain",
-    "genreId": "E6494624-CF4A-45D1-BDAF-732A6701613E",
-    "ratingId": "0F68F55F-63BD-47BC-9D1C-79DE62E0C98C",
-    "releaseDate": "2015-09-01",
-    "price": 60.99,
-    "description": "Metal Gear Solid V: The Phantom Pain is an action-adventure stealth game developed by Kojima Productions and published by Konami. It was released in 2015 for PlayStation 3, PlayStation 4, Xbox 360, Xbox One, and Microsoft Windows."
+  "genreId": "E6494624-CF4A-45D1-BDAF-732A6701613E",
+  "ratingId": "0F68F55F-63BD-47BC-9D1C-79DE62E0C98C",
+  "releaseDate": "2015-09-01",
+  "price": 60.99,
+  "description": "Metal Gear Solid V: The Phantom Pain is an action-adventure stealth game developed by Kojima Productions and published by Konami. It was released in 2015 for PlayStation 3, PlayStation 4, Xbox 360, Xbox One, and Microsoft Windows."
 }
 
