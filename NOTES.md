@@ -641,6 +641,37 @@ app.MapGet("/config", (IOptions<GameStoreOptions> options) =>
 **Note:** The Options pattern is not yet used in this project — configuration is currently read directly with `GetConnectionString()`. It becomes more valuable as the app grows and has more configuration sections to manage.
 
 ---
+### IHttpContextAccessor — Accessing HttpContext Outside a Handler
+
+**What it is:**
+`IHttpContextAccessor` is a service that lets you access the current `HttpContext` from anywhere in your code — not just inside a route handler where `HttpContext` is available as a direct parameter.
+
+**Why it's used:**
+Inside a Minimal API handler, `HttpContext` can be injected as a parameter automatically. But inside a service class (like `FileUploader`) that is resolved from DI, there's no handler parameter — you need `IHttpContextAccessor` to reach the current request's context from within the service.
+
+**How it fits:**
+```csharp
+// Register in Program.cs
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<FileUploader>();
+```
+
+```csharp
+// Consumed in FileUploader.cs
+public class FileUploader(IWebHostEnvironment environment, IHttpContextAccessor httpContextAccessor)
+{
+    public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string folder)
+    {
+        var httpContext = httpContextAccessor.HttpContext;
+        var fileUrl = $"{httpContext?.Request.Scheme}://{httpContext?.Request.Host}/{folder}/{safeFileName}";
+        // ...
+    }
+}
+```
+
+`IHttpContextAccessor` stores the `HttpContext` in an `AsyncLocal<T>` — a slot that flows with the current async call chain. As long as you're within the same request, `.HttpContext` returns the right context. Outside of a request (e.g., in a background job) it returns `null`.
+
+---
 ### launchSettings.json
 
 **What it is:**
@@ -2193,6 +2224,83 @@ GET /games                              → all games, paginated
 GET /games?Name=metal                   → games whose name contains "metal"
 GET /games?pageNumber=2&pageSize=5&Name=gear  → page 2 of results matching "gear"
 ```
+
+---
+### File Uploads — IFormFile
+
+**What it is:**
+`IFormFile` is ASP.NET Core's type for a file submitted in a `multipart/form-data` HTTP request. It represents one uploaded file, with properties for the file name, content type, size, and a stream to read its bytes.
+
+**Why it's used:**
+File uploads arrive as binary data in a multipart form body — not JSON. `IFormFile` wraps the raw stream with typed metadata so you can validate and save the file without manually parsing the HTTP body.
+
+**How it fits — `FileUploader.UploadFileAsync`:**
+
+```csharp
+public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string folder)
+{
+    // 1. Validate presence
+    if (file == null || file.Length == 0)
+        return new FileUploadResult { IsSucess = false, ErrorMessage = "File not found" };
+
+    // 2. Validate size (< 10 MB)
+    if (file.Length > 10 * 1024 * 1024)
+        return new FileUploadResult { IsSucess = false, ErrorMessage = "File size is too large" };
+
+    // 3. Validate extension
+    string[] permittedExtensions = [".jpg", ".jpeg", ".png"];
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    if (string.IsNullOrEmpty(ext) || !permittedExtensions.Contains(ext))
+        return new FileUploadResult { IsSucess = false, ErrorMessage = "Unsupported file type" };
+
+    // 4. Generate a safe file name and save to disk
+    var safeFileName = $"{Guid.NewGuid()}{ext}";
+    var fullPath = Path.Combine(environment.WebRootPath, folder, safeFileName);
+    using var stream = new FileStream(fullPath, FileMode.Create);
+    await file.CopyToAsync(stream);
+
+    // 5. Build and return the public URL
+    var fileUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}/{folder}/{safeFileName}";
+    return new FileUploadResult { IsSucess = true, FileUrl = fileUrl };
+}
+```
+
+**Key concepts:**
+
+`file.Length` — size in bytes. `10 * 1024 * 1024` is 10 MB written as byte arithmetic rather than a raw number, making the intent immediately readable.
+
+`Path.GetExtension(file.FileName).ToLowerInvariant()` — extracts the extension from the original client file name. `.ToLowerInvariant()` normalizes it so `.JPG` and `.jpg` are treated the same.
+
+**Why not trust the extension alone?** The extension is just a string — any client can rename `malware.exe` to `file.jpg`. In production, you'd also validate the file's actual content (magic bytes / MIME sniffing). Extension checking is the first layer.
+
+`Guid.NewGuid()` — generates a globally unique ID used as the file name on disk. This prevents two uploads with the same original name from overwriting each other and prevents clients from guessing other users' file paths.
+
+`environment.WebRootPath` — the absolute path to the `wwwroot/` folder. Files placed here are accessible as static files when `UseStaticFiles()` is active. `IWebHostEnvironment` is injected via constructor DI.
+
+`file.CopyToAsync(stream)` — streams the uploaded bytes directly into a `FileStream`. Using the `Async` variant means the thread is free while bytes are being written to disk — no blocking.
+
+**`FileUploadResult` — returning structured results from a service:**
+
+Rather than throwing exceptions or returning raw strings, the `FileUploader` returns a result object that carries success state and either the file URL or an error message:
+
+```csharp
+public class FileUploadResult
+{
+    public bool IsSucess { get; set; }
+    public string? FileUrl { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+```
+
+This pattern keeps the caller in control — it can inspect the result and decide how to respond (return a `400`, log the error, etc.) without needing to catch exceptions for expected failure cases.
+
+**Registering the service — `Program.cs`:**
+```csharp
+builder.Services.AddHttpContextAccessor();   // required so FileUploader can access the request
+builder.Services.AddSingleton<FileUploader>(); // one shared instance for the whole app
+```
+
+`AddSingleton` is appropriate because `FileUploader` has no per-request state — it's a stateless service that acts on the data passed to it. The `IHttpContextAccessor` it holds is thread-safe because `AsyncLocal` is context-bound per request.
 
 ---
 
