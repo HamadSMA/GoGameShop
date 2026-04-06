@@ -1,0 +1,4 @@
+$kind: collection
+name: GoGameShop.Api | v1
+variables:
+  baseUrl: http://localhost:5078

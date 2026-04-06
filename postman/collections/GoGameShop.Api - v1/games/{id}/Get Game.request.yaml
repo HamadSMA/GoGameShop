@@ -1,0 +1,7 @@
+$kind: http-request
+url: "{{baseUrl}}/games/:id"
+method: GET
+pathVariables:
+  id: 4c1e6d59-3395-5b13-fbda-cd673f5ec8c3
+examples: ./.resources/Get Game.resources/examples
+order: 1000

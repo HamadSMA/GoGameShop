@@ -1,0 +1,25 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/genres"
+  method: GET
+  headers:
+    Accept: application/json
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      [
+        {
+          "genreId": "4168323e-9d08-f84d-3832-a25d65cbe77a",
+          "name": "string"
+        },
+        {
+          "genreId": "9e236b31-a59d-7a6e-3666-0358271bb639",
+          "name": "string"
+        }
+      ]
+order: 1000

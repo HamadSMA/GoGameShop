@@ -1,0 +1,19 @@
+$kind: http-request
+name: /games
+url: "{{baseUrl}}/games"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "string",
+      "genreId": "59526184-9d58-0f2c-2b5f-611a91a756f9",
+      "ratingId": "89473f36-f35b-7e43-ca19-5b354c185be0",
+      "releaseDate": "1988-07-10",
+      "price": "80887309306.71428",
+      "description": "string"
+    }
+examples: ./.resources/-games-1.resources/examples
+order: 3000

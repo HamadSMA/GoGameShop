@@ -1,0 +1,13 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/games/:id"
+  method: DELETE
+  pathVariables:
+    id: 4c1e6d59-3395-5b13-fbda-cd673f5ec8c3
+response:
+  statusCode: 200
+  statusText: OK
+  body:
+    type: text
+    content: ""
+order: 1000

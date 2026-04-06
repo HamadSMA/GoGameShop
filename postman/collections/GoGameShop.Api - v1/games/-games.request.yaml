@@ -1,0 +1,12 @@
+$kind: http-request
+name: /games
+url: "{{baseUrl}}/games?PageNumber=1&PageSize=5&Name=string"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  PageNumber: "1"
+  PageSize: "5"
+  Name: string
+examples: ./.resources/-games.resources/examples
+order: 2000

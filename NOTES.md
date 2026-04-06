@@ -42,6 +42,7 @@ Every endpoint in this project (`MapGet`, `MapPost`, etc.) is a Minimal API. Ins
 var builder = WebApplication.CreateBuilder(args);  // Creates the app builder
 var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
 
+builder.Services.AddOpenApi();                                    // Register OpenAPI doc generation
 builder.Services.AddSqlite<GoGameShopContext>(connectionString);  // Register the database
 builder.Services.AddValidation();                                 // Register validation
 builder.Services.AddHttpLogging(options =>                        // Configure HTTP logging
@@ -55,11 +56,18 @@ builder.Services.AddHttpLogging(options =>                        // Configure H
 
 var app = builder.Build();                                        // Build the app
 
-app.UseHttpLogging();               // Log each request/response
-
 app.MapGames();                     // Register /games endpoints
 app.MapGetGenres();                 // Register /genres endpoint
 app.MapGetRatings();                // Register /ratings endpoint
+
+app.UseHttpLogging();               // Log each request/response
+
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();               // Expose OpenAPI spec at /openapi/v1.json (dev only)
+else
+    app.UseExceptionHandler();      // Handle unhandled exceptions in production
+
+app.UseStatusCodePages();           // Add Problem Details bodies to error responses
 await app.InitializeDbAsync();      // Run migrations & seed data (async)
 
 app.Run();               // Start the server
@@ -2000,6 +2008,44 @@ if (!app.Environment.IsDevelopment())
 | Includes trace ID | No | Yes — you add it to extensions |
 | Custom response shape | No | Yes — full control via `Results.Problem()` |
 | Multiple handlers | No | Yes — register many, each can handle or pass |
+
+---
+### OpenAPI
+
+**What it is:**
+OpenAPI (formerly Swagger) is a standard specification for describing HTTP APIs in a machine-readable format (JSON or YAML). It documents every endpoint — its path, method, parameters, request body shape, and response shapes — in a structured way that tools can consume.
+
+**Why it's used:**
+Without OpenAPI, API consumers have to read source code or hand-written docs to know what endpoints exist and what they accept. With OpenAPI, you get:
+- A live, auto-generated spec that stays in sync with the code
+- Free UI explorers (Swagger UI, Scalar) that let you call the API from a browser
+- Client code generation — tools can produce typed API clients from the spec
+
+**How it fits:**
+ASP.NET Core 10 ships built-in OpenAPI support via `Microsoft.AspNetCore.OpenApi`. No third-party library needed.
+
+Two steps to enable it:
+
+```csharp
+// Builder phase — register the OpenAPI document generator
+builder.Services.AddOpenApi();
+
+// App phase — expose the spec as a JSON endpoint (dev only)
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
+```
+
+`MapOpenApi()` adds a route at `/openapi/v1.json` that serves the generated spec. It's gated behind `IsDevelopment()` — the spec describes your internal API surface in detail, so you don't want it publicly accessible in production.
+
+**The generated spec:**
+Navigating to `http://localhost:5078/openapi/v1.json` in development returns a JSON document describing every registered endpoint. Any OpenAPI-compatible tool (Swagger UI, Scalar, Postman, Insomnia) can import this URL and give you a full interactive API explorer.
+
+**NuGet packages required:**
+
+| Package | Purpose |
+|---------|---------|
+| `Microsoft.AspNetCore.OpenApi` | Core OpenAPI generation and `AddOpenApi()` / `MapOpenApi()` |
+| `Microsoft.Extensions.ApiDescription.Server` | Build-time spec generation (for CI/CD and client generation) |
 
 ---
 ### Pagination

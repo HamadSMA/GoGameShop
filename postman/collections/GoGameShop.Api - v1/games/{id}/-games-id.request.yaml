@@ -1,0 +1,21 @@
+$kind: http-request
+name: /games/:id
+url: "{{baseUrl}}/games/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: 4c1e6d59-3395-5b13-fbda-cd673f5ec8c3
+body:
+  type: json
+  content: |-
+    {
+      "name": "string",
+      "genreId": "59526184-9d58-0f2c-2b5f-611a91a756f9",
+      "ratingId": "89473f36-f35b-7e43-ca19-5b354c185be0",
+      "releaseDate": "1988-07-10",
+      "price": "80887309306.71428",
+      "description": "string"
+    }
+examples: ./.resources/-games-id.resources/examples
+order: 2000

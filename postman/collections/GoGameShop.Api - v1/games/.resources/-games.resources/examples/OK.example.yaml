@@ -1,0 +1,40 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/games?PageNumber=1&PageSize=5&Name=string"
+  method: GET
+  headers:
+    Accept: application/json
+  queryParams:
+    PageNumber: "1"
+    PageSize: "5"
+    Name: string
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "totalPages": "0",
+        "games": [
+          {
+            "id": "010bac7d-c709-f280-2193-54baad4d2770",
+            "name": "string",
+            "genre": "string",
+            "rating": "string",
+            "price": "0.9",
+            "releaseDate": "2023-02-18"
+          },
+          {
+            "id": "6bc6b1f1-c74f-885c-4453-cac075b9005e",
+            "name": "string",
+            "genre": "string",
+            "rating": "string",
+            "price": "9178",
+            "releaseDate": "1969-10-08"
+          }
+        ]
+      }
+order: 1000

@@ -1,0 +1,25 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/ratings"
+  method: GET
+  headers:
+    Accept: application/json
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      [
+        {
+          "ratingId": "8e80d09c-844e-1c9c-0e69-9678f3f7f9c1",
+          "name": "string"
+        },
+        {
+          "ratingId": "28cd65d9-740a-b67a-44bf-fc277b5e9fd5",
+          "name": "string"
+        }
+      ]
+order: 1000

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.HttpLogging;
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
 
+builder.Services.AddOpenApi();
+
 // builder.Services.AddExceptionHandler<GlobalErrorHandler>();
 builder.Services.AddProblemDetails();
 
@@ -29,7 +31,9 @@ app.MapGetRatings();
 
 app.UseHttpLogging();
 
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
+else
     app.UseExceptionHandler();
 
 app.UseStatusCodePages();

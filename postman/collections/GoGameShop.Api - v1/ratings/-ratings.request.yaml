@@ -1,0 +1,8 @@
+$kind: http-request
+name: /ratings
+url: "{{baseUrl}}/ratings"
+method: GET
+headers:
+  Accept: application/json
+examples: ./.resources/-ratings.resources/examples
+order: 1000

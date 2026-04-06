@@ -1,0 +1,8 @@
+$kind: http-request
+name: /genres
+url: "{{baseUrl}}/genres"
+method: GET
+headers:
+  Accept: application/json
+examples: ./.resources/-genres.resources/examples
+order: 1000
