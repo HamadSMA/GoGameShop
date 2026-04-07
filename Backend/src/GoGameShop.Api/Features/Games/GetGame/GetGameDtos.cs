@@ -7,5 +7,6 @@ public record GameDetailsDto(
     Guid RatingId,
     decimal Price,
     DateOnly ReleaseDate,
-    string Description
+    string Description,
+    string ImageUri
 );

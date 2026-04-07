@@ -7,14 +7,18 @@ public record CreateGameDto(
     DateOnly ReleaseDate,
     [Range(1, 100)] decimal Price,
     [Required] [StringLength(500)] string Description
-);
+)
+{
+    public IFormFile? ImageFile { get; set; }
+}
 
 public record GameDetailsDto(
-    Guid Id,
-    string Name,
-    Guid GenreId,
-    Guid RatingId,
-    DateOnly ReleaseDate,
-    decimal Price,
-    string Description
-);
+        Guid Id,
+        string Name,
+        Guid GenreId,
+        Guid RatingId,
+        DateOnly ReleaseDate,
+        decimal Price,
+        string Description,
+        string ImageUri
+    );
