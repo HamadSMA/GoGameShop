@@ -1467,6 +1467,68 @@ return game is null ? Results.NotFound() : Results.Ok(game);
 Reserve exceptions for genuinely unexpected failures — things that shouldn't happen in normal operation. For expected cases like "record not found", use return values (`null`, `bool`, `Result` types) instead.
 
 ---
+### Fail-Fast Validation
+
+**What it is:**
+Fail-fast validation means checking preconditions **at the top of a method** and returning early if they aren't met — before doing any real work. Each guard clause checks one condition, sets an error, and returns immediately.
+
+**Why it's used:**
+- Keeps the "happy path" — the code that actually does the work — unindented and easy to read
+- Avoids wasting resources (disk I/O, database calls) on invalid input
+- Makes each failure reason explicit and self-contained
+
+**How it fits:**
+In `FileUploader.UploadFileAsync`, three guards run before any file is written to disk:
+
+```csharp
+public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string folder)
+{
+    var result = new FileUploadResult();
+
+    // Guard 1 — is there actually a file?
+    if (file == null || file.Length == 0)
+    {
+        result.IsSucess = false;
+        result.ErrorMessage = "File not found";
+        return result;  // exit immediately
+    }
+
+    // Guard 2 — is the file too large?
+    if (file.Length > 10 * 1024 * 1024)
+    {
+        result.IsSucess = false;
+        result.ErrorMessage = "File size is too large";
+        return result;  // exit immediately
+    }
+
+    // Guard 3 — is the extension allowed?
+    string[] permittedExtensions = [".jpg", ".jpeg", ".png"];
+    var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+    if (string.IsNullOrEmpty(fileExtension) || !permittedExtensions.Contains(fileExtension))
+    {
+        result.IsSucess = false;
+        result.ErrorMessage = "Unsupported file type";
+        return result;  // exit immediately
+    }
+
+    // --- Happy path: all guards passed ---
+    // save file, build URL, return success...
+}
+```
+
+**Comparison with alternative validation approaches:**
+
+| Approach | How it works | When to use |
+|---|---|---|
+| **Fail-fast (guard clauses)** | Return early on the first failure; only one error reported | Simple methods; quick rejection before expensive work |
+| **Exception throwing** | `throw new ArgumentException(...)` instead of returning a result | For programming errors that should never happen (bugs, not user input) |
+| **Collect-all errors** | Run all checks, gather every failure, return them together | Form validation where the user needs to fix multiple things at once |
+| **FluentValidation / Data Annotations** | Declare rules on a class; the framework runs them automatically | DTO/model validation at the API boundary (see [Data Annotations & Validation](#data-annotations--validation)) |
+
+The approach in `FileUploader` is fail-fast + result object (not exceptions), because these are **expected, recoverable failures** caused by user input — not bugs. Exceptions are reserved for genuinely unexpected situations.
+
+---
 ### Vertical Slice Architecture
 
 **What it is:**
