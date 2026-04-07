@@ -1,14 +1,33 @@
+using GoGameShop.Api.Shared.FileUpload;
+using Microsoft.AspNetCore.Mvc;
+
 namespace GoGameShop.Api.Features.Games.CreateGame;
 
 public static class CreateGameEndpoint
 {
+    private const string DefaultImageUri = "https://placehold.co/150";
+
     public static void MapCreateGame(this IEndpointRouteBuilder app)
     {
         // POST /games
         app.MapPost(
             "/",
-            async (GoGameShopContext dbContext, CreateGameDto gameDto, ILogger<Program> logger) =>
+            async (GoGameShopContext dbContext, [FromForm] CreateGameDto gameDto, ILogger<Program> logger,
+                FileUploader fileUploader) =>
             {
+                var imageUri = DefaultImageUri;
+
+                if (gameDto.ImageFile is not null)
+                {
+                    var fileUploadResult = await fileUploader.UploadFileAsync(gameDto.ImageFile,
+                        StorageNames.GameImagesFolder);
+
+                    if (!fileUploadResult.IsSuccess)
+                        return Results.BadRequest(new { message = fileUploadResult.ErrorMessage });
+                    imageUri = fileUploadResult.FileUrl;
+                }
+
+
                 Game game =
                     new()
                     {
@@ -17,7 +36,8 @@ public static class CreateGameEndpoint
                         RatingId = gameDto.RatingId,
                         ReleaseDate = gameDto.ReleaseDate,
                         Price = gameDto.Price,
-                        Description = gameDto.Description
+                        Description = gameDto.Description,
+                        ImageUri = imageUri!
                     };
 
                 dbContext.Add(game);
@@ -39,7 +59,8 @@ public static class CreateGameEndpoint
                         game.RatingId,
                         game.ReleaseDate,
                         game.Price,
-                        game.Description
+                        game.Description,
+                        game.ImageUri
                     )
                 );
             }

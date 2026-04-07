@@ -28,6 +28,7 @@ var app = builder.Build();
 
 // app.UseMiddleware<RequestTimingMiddleware>(); Kept for reference
 
+
 app.MapGames();
 app.MapGetGenres();
 app.MapGetRatings();

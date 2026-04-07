@@ -20,7 +20,8 @@ public static class GetGameEndpoint
                                 game.RatingId,
                                 game.Price,
                                 game.ReleaseDate,
-                                game.Description
+                                game.Description,
+                                game.ImageUri
                             )
                         );
                 }

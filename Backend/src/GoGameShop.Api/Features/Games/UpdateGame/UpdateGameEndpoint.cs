@@ -1,3 +1,6 @@
+using GoGameShop.Api.Shared.FileUpload;
+using Microsoft.AspNetCore.Mvc;
+
 namespace GoGameShop.Api.Features.Games.UpdateGame;
 
 public static class UpdateGameEndpoint
@@ -5,22 +8,37 @@ public static class UpdateGameEndpoint
     public static void MapUpdateGame(this IEndpointRouteBuilder app)
     {
         // PUT /games/{id}
-        app.MapPut("/{id}", async (Guid id, GoGameShopContext DbContext, UpdateGameDto gameDto) =>
-        {
-            var game = await DbContext.Games.FindAsync(id);
+        app.MapPut("/{id}",
+            async (Guid id, GoGameShopContext DbContext, [FromForm] UpdateGameDto gameDto,
+                FileUploader fileUploader) =>
+            {
+                var existingGame = await DbContext.Games.FindAsync(id);
+                if (existingGame is null) return Results.NotFound("Game not found");
+                if (gameDto.ImageFile is not null)
+                {
+                    var fileUploadResult = await fileUploader.UploadFileAsync(gameDto.ImageFile,
+                        StorageNames.GameImagesFolder);
 
-            if (game is null) return Results.NotFound("Game not found");
+                    if (!fileUploadResult.IsSuccess)
+                        return Results.BadRequest(new { message = fileUploadResult.ErrorMessage });
+                    existingGame.ImageUri = fileUploadResult.FileUrl!;
+                }
 
-            game.Name = gameDto.Name;
-            game.GenreId = gameDto.GenreId;
-            game.RatingId = gameDto.RatingId;
-            game.ReleaseDate = gameDto.ReleaseDate;
-            game.Price = gameDto.Price;
-            game.Description = gameDto.Description;
 
-            await DbContext.SaveChangesAsync();
+                existingGame.Name = gameDto.Name;
+                existingGame.GenreId = gameDto.GenreId;
+                existingGame.RatingId = gameDto.RatingId;
+                existingGame.ReleaseDate = gameDto.ReleaseDate;
+                existingGame.Price = gameDto.Price;
+                existingGame.Description = gameDto.Description;
 
-            return Results.NoContent();
-        });
+                await DbContext.SaveChangesAsync();
+
+                return Results.NoContent();
+            });
     }
+}
+
+public class FilerUploader
+{
 }

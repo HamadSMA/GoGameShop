@@ -31,7 +31,8 @@ public static class GetGamesEndpoint
                         game.Genre!.Name,
                         game.Rating!.Name,
                         game.Price,
-                        game.ReleaseDate
+                        game.ReleaseDate,
+                        game.ImageUri
                     ))
                     .AsNoTracking()
                     .ToListAsync();
