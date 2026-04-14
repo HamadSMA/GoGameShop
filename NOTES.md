@@ -2289,6 +2289,49 @@ GET /games?pageNumber=2&pageSize=5&Name=gear  → page 2 of results matching "ge
 ```
 
 ---
+### [FromForm] — Binding Form Data
+
+**What it is:**
+`[FromForm]` is a parameter attribute in ASP.NET Core that tells the framework to bind the parameter from a `multipart/form-data` or `application/x-www-form-urlencoded` request body — not from JSON.
+
+**Why it's used:**
+By default, Minimal API assumes any object parameter comes from the JSON body. When an endpoint needs to accept a file upload alongside regular fields, the request must be `multipart/form-data` (because JSON cannot carry binary file data). `[FromForm]` switches the binding source so the DTO is populated from the form fields instead.
+
+**How it fits:**
+```csharp
+app.MapPost("/", async ([FromForm] CreateGameDto gameDto, FileUploader fileUploader) =>
+{
+    // gameDto.Name, gameDto.Price, etc. come from form fields
+    // gameDto.ImageFile comes from the file field (IFormFile)
+});
+```
+
+The DTO is a `record` with scalar properties (bound from form fields) plus an `IFormFile?` property (bound from the file part):
+```csharp
+public record CreateGameDto(
+    [Required][StringLength(50)] string Name,
+    Guid GenreId,
+    Guid RatingId,
+    DateOnly ReleaseDate,
+    [Range(1, 100)] decimal Price,
+    [Required][StringLength(500)] string Description
+)
+{
+    public IFormFile? ImageFile { get; set; }
+}
+```
+
+The constructor parameters bind from named form fields. `ImageFile` is a mutable property rather than a constructor parameter because `IFormFile` requires separate binding — Minimal API's form binder handles it after the record is constructed.
+
+**JSON vs form-data — when to use which:**
+
+| Scenario | Binding source | Attribute |
+|----------|----------------|-----------|
+| Sending JSON | Body (default) | *(none)* |
+| Sending form fields only | Form | `[FromForm]` |
+| Sending form fields + file | Multipart form | `[FromForm]` |
+
+---
 ### File Uploads — IFormFile
 
 **What it is:**
