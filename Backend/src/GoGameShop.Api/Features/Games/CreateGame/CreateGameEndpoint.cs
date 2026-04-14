@@ -61,9 +61,8 @@ public static class CreateGameEndpoint
                         game.Price,
                         game.Description,
                         game.ImageUri
-                    )
-                );
+                    ));
             }
-        );
+        ).WithParameterValidation().DisableAntiforgery();
     }
 }

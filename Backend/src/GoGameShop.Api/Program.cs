@@ -33,6 +33,8 @@ app.MapGames();
 app.MapGetGenres();
 app.MapGetRatings();
 
+app.UseStaticFiles();
+
 app.UseHttpLogging();
 app.UseStatusCodePages();
 

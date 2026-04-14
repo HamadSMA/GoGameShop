@@ -35,10 +35,6 @@ public static class UpdateGameEndpoint
                 await DbContext.SaveChangesAsync();
 
                 return Results.NoContent();
-            });
+            }).WithParameterValidation().DisableAntiforgery();
     }
-}
-
-public class FilerUploader
-{
 }

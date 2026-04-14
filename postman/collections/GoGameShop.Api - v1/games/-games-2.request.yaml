@@ -1,0 +1,46 @@
+$kind: http-request
+name: /games
+url: "{{baseUrl}}/games"
+method: POST
+headers:
+  Content-Type: multipart/form-data
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Gran Turismo
+      description: ""
+      disabled: false
+    - type: text
+      key: genreId
+      value: 0ac89469-9f67-433d-bfc5-b8867958fc63
+      description: ""
+      disabled: false
+    - type: text
+      key: ratingId
+      value: ffa646d9-9356-4250-9c88-9ecb8e1a8146
+      description: ""
+      disabled: false
+    - type: text
+      key: releaseDate
+      value: 1999-10-05
+      description: ""
+      disabled: false
+    - type: text
+      key: price
+      value: "50.99"
+      description: ""
+      disabled: false
+    - type: text
+      key: description
+      value: A nice game about racing. Has license mode.
+      description: ""
+      disabled: false
+    - type: file
+      key: imageFile
+      src:
+        - /Users/hamadalaslani/Desktop/tings/holberton-project/imgs/sea-of-stars.png
+      description: ""
+      disabled: false
+order: 1541944068016052

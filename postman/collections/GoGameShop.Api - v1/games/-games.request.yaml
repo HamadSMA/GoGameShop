@@ -1,12 +1,16 @@
 $kind: http-request
 name: /games
-url: "{{baseUrl}}/games?PageNumber=1&PageSize=5&Name=string"
+url: '{{baseUrl}}/games'
 method: GET
 headers:
-  Accept: application/json
+  - key: Accept
+    value: application/json
 queryParams:
-  PageNumber: "1"
-  PageSize: "5"
-  Name: string
-examples: ./.resources/-games.resources/examples
+  - key: PageNumber
+    value: "1"
+  - key: PageSize
+    value: "5"
+  - key: Name
+    value: string
+examples: './.resources/-games.resources/examples'
 order: 2000
