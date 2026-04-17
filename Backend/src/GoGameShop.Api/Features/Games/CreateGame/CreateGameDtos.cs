@@ -13,12 +13,13 @@ public record CreateGameDto(
 }
 
 public record GameDetailsDto(
-        Guid Id,
-        string Name,
-        Guid GenreId,
-        Guid RatingId,
-        DateOnly ReleaseDate,
-        decimal Price,
-        string Description,
-        string ImageUri
-    );
+    Guid Id,
+    string Name,
+    Guid GenreId,
+    Guid RatingId,
+    DateOnly ReleaseDate,
+    decimal Price,
+    string Description,
+    string ImageUri,
+    string LastUpdatedBy
+);

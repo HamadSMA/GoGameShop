@@ -7,6 +7,13 @@ var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
 builder.Services.AddSqlite<GoGameShopContext>(connectionString);
 builder.Services.AddValidation();
 
+builder
+    .Services.AddAuthentication()
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+    });
+
 // builder.Services.AddExceptionHandler<GlobalErrorHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpLogging(options =>

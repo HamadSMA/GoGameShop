@@ -6,6 +6,11 @@ public static class DataExtensions
 {
     public static async Task InitializeDbAsync(this WebApplication app)
     {
+        if (Environment.GetEnvironmentVariable("ASPNETCORE_APIDESCRIPTION_GENERATE") is null)
+        {
+            app.Logger.LogInformation("Skipping database initialization (OpenAPI generation mode)");
+            return;
+        }
         await app.MigrateDbAsync();
         await app.SeedDbAsync();
         app.Logger.LogInformation("Database initialized");

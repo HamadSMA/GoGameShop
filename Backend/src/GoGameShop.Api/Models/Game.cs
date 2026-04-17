@@ -12,4 +12,5 @@ public class Game
     public decimal Price { get; set; }
     public required string Description { get; set; }
     public required string ImageUri { get; set; }
+    public required string LastUpdatedBy { get; set; }
 }

@@ -13,11 +13,10 @@ public static class GetGamesEndpoint
             {
                 var skipCount = (request.PageNumber - 1) * request.PageSize;
 
-                var filteredGames = dbContext.Games
-                    .Where(game =>
-                        string.IsNullOrWhiteSpace(request.Name)
-                        || EF.Functions.Like(game.Name,
-                            $"%{request.Name}%"));
+                var filteredGames = dbContext.Games.Where(game =>
+                    string.IsNullOrWhiteSpace(request.Name)
+                    || EF.Functions.Like(game.Name, $"%{request.Name}%")
+                );
 
                 var gamesOnPage = await filteredGames
                     .OrderBy(game => game.Name)
@@ -32,7 +31,8 @@ public static class GetGamesEndpoint
                         game.Rating!.Name,
                         game.Price,
                         game.ReleaseDate,
-                        game.ImageUri
+                        game.ImageUri,
+                        game.LastUpdatedBy
                     ))
                     .AsNoTracking()
                     .ToListAsync();
