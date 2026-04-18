@@ -97,6 +97,9 @@ MigrationBackup/
 ## Personal notes / case study (not for version control)
 case-study.md
 
+## Postman
+postman/
+
 ## macOS
 .DS_Store
 .AppleDouble
