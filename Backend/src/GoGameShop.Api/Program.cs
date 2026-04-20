@@ -1,3 +1,4 @@
+using GoGameShop.Api.Features.Baskets.UpsertBasket;
 using GoGameShop.Api.Shared.FileUpload;
 using Microsoft.AspNetCore.HttpLogging;
 
@@ -14,7 +15,7 @@ builder
         options.MapInboundClaims = false;
     });
 
-// builder.Services.AddExceptionHandler<GlobalErrorHandler>();
+// builder.Services.AddExceptionHandler<GlobalErrorHandler>(); Kept for reference
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpLogging(options =>
 {
@@ -39,6 +40,7 @@ var app = builder.Build();
 app.MapGames();
 app.MapGetGenres();
 app.MapGetRatings();
+app.MapUpsertBasket();
 
 app.UseStaticFiles();
 

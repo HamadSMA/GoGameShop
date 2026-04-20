@@ -3,6 +3,7 @@ using System;
 using GoGameShop.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoGameShop.Api.Data.Migrations
 {
     [DbContext(typeof(GoGameShopContext))]
-    partial class GoGameShopContextModelSnapshot : ModelSnapshot
+    [Migration("20260419120158_AddCustormerBaskets")]
+    partial class AddCustormerBaskets
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
