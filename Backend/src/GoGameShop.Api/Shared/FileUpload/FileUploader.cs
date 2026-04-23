@@ -34,7 +34,8 @@ public class FileUploader(IWebHostEnvironment Environment, IHttpContextAccessor 
         }
 
         var uploadFolder = Path.Combine(Environment.WebRootPath, folder);
-        if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
+        if (!Directory.Exists(uploadFolder))
+            Directory.CreateDirectory(uploadFolder);
         var safeFileName = $"{Guid.NewGuid()}{fileExtension}";
         var fullPath = Path.Combine(uploadFolder, safeFileName);
 

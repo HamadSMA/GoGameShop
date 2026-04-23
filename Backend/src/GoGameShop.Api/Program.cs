@@ -1,4 +1,4 @@
-using GoGameShop.Api.Features.Baskets.UpsertBasket;
+using GoGameShop.Api.Features.Baskets;
 using GoGameShop.Api.Shared.FileUpload;
 using Microsoft.AspNetCore.HttpLogging;
 
@@ -40,7 +40,7 @@ var app = builder.Build();
 app.MapGames();
 app.MapGetGenres();
 app.MapGetRatings();
-app.MapUpsertBasket();
+app.MapBaskets();
 
 app.UseStaticFiles();
 

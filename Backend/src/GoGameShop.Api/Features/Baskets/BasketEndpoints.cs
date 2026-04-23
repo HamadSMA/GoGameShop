@@ -1,7 +1,7 @@
+using GoGameShop.Api.Features.Baskets.GetBasket;
+using GoGameShop.Api.Features.Baskets.UpsertBasket;
 
-
-namespace GoGameShop.Api.Features.Baskets.UpsertBasket;
-
+namespace GoGameShop.Api.Features.Baskets;
 
 public static class BasketEndpoints
 {
@@ -9,5 +9,6 @@ public static class BasketEndpoints
     {
         var group = app.MapGroup("/baskets");
         group.MapUpsertBasket();
+        group.MapGetBasket();
     }
 }
