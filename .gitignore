@@ -86,6 +86,11 @@ rcf/
 *.ndf
 healthchecksdb
 
+## SQLite
+*.db
+*.db-shm
+*.db-wal
+
 ## Local tool caches
 .fake/
 .paket/paket.exe
@@ -96,6 +101,7 @@ MigrationBackup/
 
 ## Personal notes / case study (not for version control)
 case-study.md
+CLAUDE.md
 
 ## Postman
 postman/

@@ -515,6 +515,36 @@ GET /games?pageNumber=2&pageSize=5&Name=gear  → page 2 of results matching "ge
 ```
 
 ---
+### ThenInclude — Nested Eager Loading
+
+**What it is:**
+`ThenInclude` lets you load a navigation property on an already-included related entity. It chains off a previous `.Include()` call to go one level deeper.
+
+**Why it's used:**
+`.Include()` can only go one level deep. If you need to load a relationship on a relationship (e.g. basket items *and* each item's game), you chain `.ThenInclude()`.
+
+**How it fits — `GetBasketEndpoints`:**
+```csharp
+dbContext.Baskets
+    .Include(basket => basket.Items)         // load BasketItems for the basket
+    .ThenInclude(item => item.Game)          // then load the Game for each BasketItem
+    .FirstOrDefaultAsync(basket => basket.Id == userId)
+```
+
+Without `.ThenInclude(item => item.Game)`, `item.Game` would be `null` even though `item.GameId` has a value — EF Core won't load it automatically unless you ask.
+
+**Computed properties on records:**
+`BasketDto` uses `=>` to compute `TotalAmount` at access time:
+```csharp
+public record BasketDto(Guid CustomerId, IEnumerable<BasketItemDto> Items)
+{
+    public decimal TotalAmount => Items.Sum(item => item.Price * item.Quantity);
+}
+```
+
+`=>` makes it a **property** — `System.Text.Json` serializes it into the response. If written as `= Items.Sum(...)` (a field), it would be silently excluded from the JSON output.
+
+---
 ### [FromForm] — Binding Form Data
 
 **What it is:**

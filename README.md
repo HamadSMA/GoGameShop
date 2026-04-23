@@ -81,6 +81,13 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 | `PUT` | `/games/{id}` | Update an existing game (accepts `multipart/form-data`; optional `ImageFile` field) — requires JWT |
 | `DELETE` | `/games/{id}` | Delete a game by ID |
 
+### Baskets
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists |
+| `PUT` | `/baskets/{userId}` | Create or replace a customer's basket (upsert) |
+
 ### Genres & Ratings
 
 | Method | Route | Description |
@@ -113,6 +120,10 @@ GoGameShop/
 │   │       │   │   ├── GetGames/         # GET /games (endpoint + DTOs)
 │   │       │   │   ├── UpdateGame/       # PUT /games/{id} (endpoint + DTOs)
 │   │       │   │   └── GamesEndpoints.cs # Maps all /games routes
+│   │       │   ├── Baskets/
+│   │       │   │   ├── GetBasket/        # GET /baskets/{userId} (endpoint + DTOs)
+│   │       │   │   ├── UpsertBasket/     # PUT /baskets/{userId} (endpoint + DTOs)
+│   │       │   │   └── BasketEndpoints.cs # Maps all /baskets routes
 │   │       │   ├── Genres/               # GET /genres (endpoint + DTOs)
 │   │       │   └── Ratings/              # GET /ratings (endpoint + DTOs)
 │   │       ├── Models/                   # Domain entities (Game, Genre, Rating)
