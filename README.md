@@ -85,8 +85,8 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `GET` | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists — requires `UserAccess` policy |
-| `PUT` | `/baskets/{userId}` | Create or replace a customer's basket (upsert) — requires `UserAccess` policy |
+| `GET` | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists — requires `UserAccess` policy (via fallback) |
+| `PUT` | `/baskets/{userId}` | Create or replace a customer's basket (upsert) — requires `UserAccess` policy (via fallback) |
 
 ### Genres & Ratings
 

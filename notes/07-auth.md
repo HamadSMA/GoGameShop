@@ -44,46 +44,81 @@ builder
 `RoleClaimType = "role"` — tells the framework which claim in the JWT represents the user's role. The default Microsoft claim name is a very long URL. Setting it to `"role"` means `.RequireRole("Admin")` and `User.IsInRole("Admin")` look for the `role` claim instead.
 
 ---
-### Authorization Policies
+### Fallback Policy — Secure by Default
 
-**What they are:**
-A policy is a named set of requirements that a request must satisfy to be allowed through. Instead of writing `if (!user.HasClaim(...))` inside every endpoint, you define requirements once in a policy and reference the policy by name on each endpoint.
+**What it is:**
+`AddFallbackPolicy` registers a policy that automatically applies to every endpoint that has no explicit authorization configured. It flips the default: instead of endpoints being public unless locked down, they are locked down unless explicitly opened up.
 
-**How it fits — `Program.cs`:**
+**Why it matters:**
+With `AddPolicy` alone, forgetting `RequireAuthorization` on a new endpoint silently leaves it public. With a fallback, forgetting means the fallback kicks in — a safer default that prevents accidental exposure.
+
+**How it fits — `AuthorizationExtensions.cs`:**
 ```csharp
 builder
     .Services.AddAuthorizationBuilder()
-    .AddPolicy(
+    .AddFallbackPolicy(
         Policies.UserAccess,
         authBuilder =>
         {
-            authBuilder.RequireClaim("scope", "gogameshop_api.all");
+            authBuilder.RequireClaim("scope", ApiAccessScope);
         }
     )
     .AddPolicy(
         Policies.AdminAccess,
         authBuilder =>
         {
-            authBuilder.RequireClaim("scope", "gogameshop_api.all");
+            authBuilder.RequireClaim("scope", ApiAccessScope);
             authBuilder.RequireRole(Roles.Admin);
         }
     );
 ```
 
-`AddAuthorizationBuilder()` — registers the authorization services and returns a builder for chaining policies.
+The basket endpoints have no auth call on them — they are automatically protected by the `UserAccess` fallback.
 
-`AddPolicy(name, configure)` — registers a named policy. The `configure` callback receives an `AuthorizationPolicyBuilder` where you attach requirements.
+`AddPolicy` — registers a named policy applied only when explicitly referenced via `RequireAuthorization(policyName)`. `AdminAccess` is still a named policy because it applies to a specific subset of endpoints.
 
-`RequireClaim("scope", "gogameshop_api.all")` — the JWT must contain a claim named `scope` with the value `gogameshop_api.all`. This identifies the token as one issued for this API specifically.
+---
+### AllowAnonymous — Explicit Opt-Out
 
-`RequireRole(Roles.Admin)` — the JWT's `role` claim must contain `"Admin"`. Combined with the scope check, `AdminAccess` requires both conditions to be true.
+**What it is:**
+`.AllowAnonymous()` exempts an endpoint from all authorization checks, including the fallback policy. When a fallback policy is active, this is the only way to make an endpoint publicly accessible.
 
-**Two policies in this project:**
+**How it fits:**
+```csharp
+app.MapGet("/games", ...).AllowAnonymous();
+app.MapGet("/genres", ...).AllowAnonymous();
+```
 
-| Policy | Requirements | Who passes |
-|--------|-------------|------------|
-| `UserAccess` | scope = `gogameshop_api.all` | Any authenticated user with a valid API token |
-| `AdminAccess` | scope = `gogameshop_api.all` + role = `Admin` | Only users with the Admin role |
+Without `.AllowAnonymous()`, the fallback would block unauthenticated clients from reading the game catalog — which would make the shop unusable. The call makes the intent explicit: this endpoint is intentionally public.
+
+**The three-tier pattern in this project:**
+
+| Endpoint | Auth call | Effective policy |
+|----------|-----------|-----------------|
+| `GET /games`, `GET /games/{id}`, `GET /genres`, `GET /ratings` | `.AllowAnonymous()` | Public |
+| `GET /baskets/{userId}`, `PUT /baskets/{userId}` | *(none)* | `UserAccess` via fallback |
+| `POST /games`, `PUT /games/{id}`, `DELETE /games/{id}` | `.RequireAuthorization(Policies.AdminAccess)` | `AdminAccess` |
+
+---
+### UseAuthorization Middleware Order
+
+**What it is:**
+By default, ASP.NET Core adds the authorization middleware automatically. But when you need to control where it sits in the pipeline — specifically after `UseStaticFiles()` — you call `app.UseAuthorization()` explicitly.
+
+**Why order matters here:**
+Static files (`wwwroot/`) are served by `UseStaticFiles()`. If `UseAuthorization()` runs before it, the authorization middleware would intercept requests for images and other assets and return `401` to anonymous users — even when those files are meant to be public.
+
+**How it fits — `Program.cs`:**
+```csharp
+app.UseStaticFiles();       // serve wwwroot/ files first, before auth runs
+app.UseAuthorization();     // then enforce auth on API endpoints
+
+app.MapGames();
+app.MapGetGenres();
+// ...
+```
+
+Placing `UseAuthorization()` after `UseStaticFiles()` means static file requests short-circuit before authorization is checked, so images load for everyone regardless of auth state.
 
 ---
 ### Roles and Policies — Static Constant Classes
@@ -130,20 +165,18 @@ app.MapPut("/games/{id}", ...).RequireAuthorization(Policies.AdminAccess);
 app.MapDelete("/games/{id}", ...).RequireAuthorization(Policies.AdminAccess);
 ```
 
-Endpoints with no `RequireAuthorization` call are public — no token required.
-
 **Endpoint authorization summary:**
 
-| Method | Route | Policy |
-|--------|-------|--------|
-| `GET` | `/games` | Public |
-| `GET` | `/games/{id}` | Public |
-| `POST` | `/games` | AdminAccess |
-| `PUT` | `/games/{id}` | AdminAccess |
-| `DELETE` | `/games/{id}` | AdminAccess |
-| `GET` | `/baskets/{userId}` | UserAccess |
-| `PUT` | `/baskets/{userId}` | UserAccess |
-| `GET` | `/genres` | Public |
-| `GET` | `/ratings` | Public |
+| Method | Route | How | Effective policy |
+|--------|-------|-----|-----------------|
+| `GET` | `/games` | `.AllowAnonymous()` | Public |
+| `GET` | `/games/{id}` | `.AllowAnonymous()` | Public |
+| `GET` | `/genres` | `.AllowAnonymous()` | Public |
+| `GET` | `/ratings` | `.AllowAnonymous()` | Public |
+| `GET` | `/baskets/{userId}` | *(none — fallback)* | UserAccess |
+| `PUT` | `/baskets/{userId}` | *(none — fallback)* | UserAccess |
+| `POST` | `/games` | `.RequireAuthorization(Policies.AdminAccess)` | AdminAccess |
+| `PUT` | `/games/{id}` | `.RequireAuthorization(Policies.AdminAccess)` | AdminAccess |
+| `DELETE` | `/games/{id}` | `.RequireAuthorization(Policies.AdminAccess)` | AdminAccess |
 
 ---
