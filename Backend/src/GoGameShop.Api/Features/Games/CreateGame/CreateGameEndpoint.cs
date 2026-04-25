@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using GoGameShop.Api.Shared.Authorization;
 using GoGameShop.Api.Shared.FileUpload;
 using Microsoft.AspNetCore.Mvc;
 
@@ -90,6 +91,7 @@ public static class CreateGameEndpoint
                 }
             )
             .WithParameterValidation()
-            .DisableAntiforgery();
+            .DisableAntiforgery()
+            .RequireAuthorization(Policies.AdminAccess);
     }
 }

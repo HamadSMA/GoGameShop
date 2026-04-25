@@ -1,3 +1,4 @@
+using GoGameShop.Api.Shared.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace GoGameShop.Api.Features.Games.DeleteGame;
@@ -8,13 +9,14 @@ public static class DeleteGameEndpoint
     {
         // DELETE /games/{id}
         app.MapDelete(
-            "/{id}",
-            async (Guid id, GoGameShopContext dbContext) =>
-            {
-                await dbContext.Games.Where(game => game.Id == id).ExecuteDeleteAsync();
+                "/{id}",
+                async (Guid id, GoGameShopContext dbContext) =>
+                {
+                    await dbContext.Games.Where(game => game.Id == id).ExecuteDeleteAsync();
 
-                return Results.NoContent();
-            }
-        );
+                    return Results.NoContent();
+                }
+            )
+            .RequireAuthorization(Policies.AdminAccess);
     }
 }
