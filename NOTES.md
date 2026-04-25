@@ -15,3 +15,4 @@
 | API Design | [notes/04-api-design.md](notes/04-api-design.md) |
 | Async Programming | [notes/05-async-programming.md](notes/05-async-programming.md) |
 | Object-Oriented Programming | [notes/06-oop.md](notes/06-oop.md) |
+| Authentication & Authorization | [notes/07-auth.md](notes/07-auth.md) |

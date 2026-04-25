@@ -77,16 +77,16 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 |--------|-------|-------------|
 | `GET` | `/games` | Get a paginated, searchable list of games (supports `pageNumber`, `pageSize`, and `Name` query params) |
 | `GET` | `/games/{id}` | Get a single game by ID |
-| `POST` | `/games` | Create a new game (accepts `multipart/form-data`; optional `ImageFile` field) — requires JWT |
-| `PUT` | `/games/{id}` | Update an existing game (accepts `multipart/form-data`; optional `ImageFile` field) — requires JWT |
-| `DELETE` | `/games/{id}` | Delete a game by ID |
+| `POST` | `/games` | Create a new game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy |
+| `PUT` | `/games/{id}` | Update an existing game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy |
+| `DELETE` | `/games/{id}` | Delete a game by ID — requires `AdminAccess` policy |
 
 ### Baskets
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `GET` | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists |
-| `PUT` | `/baskets/{userId}` | Create or replace a customer's basket (upsert) |
+| `GET` | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists — requires `UserAccess` policy |
+| `PUT` | `/baskets/{userId}` | Create or replace a customer's basket (upsert) — requires `UserAccess` policy |
 
 ### Genres & Ratings
 
@@ -108,6 +108,7 @@ GoGameShop/
 │   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
 │   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
 │   │       ├── Shared/                   # Cross-cutting concerns
+│   │       │   ├── Authorization/        # Policies and Roles static constant classes
 │   │       │   ├── ErrorHandling/        # GlobalErrorHandler (IExceptionHandler)
 │   │       │   ├── FileUpload/           # FileUploader service and FileUploadResult
 │   │       │   └── Timing/               # RequestTimingMiddleware (custom middleware, kept for reference)
@@ -160,7 +161,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ```
 ▓▓▓▓▓▓▓▓▓▓  REST API, CRUD, DTOs, EF Core, SQLite, Vertical Slice Architecture
 ▓▓▓▓▓▓▓▓▓▓  HTTP Logging, Middleware, Error Handling, Pagination, Search, OpenAPI, File System
-▓▓░░░░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
+▓▓▓▓▓▓░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
 ░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
 ░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire
 ░░░░░░░░░░  Stripe Payments, Service Bus, Outbox Pattern, Background Workers
