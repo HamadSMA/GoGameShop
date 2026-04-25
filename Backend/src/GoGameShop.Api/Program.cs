@@ -19,23 +19,8 @@ builder
     });
 
 // Authorization service adds its middleware automatically, no need to add it to the pipeline.
-builder
-    .Services.AddAuthorizationBuilder()
-    .AddPolicy(
-        Policies.UserAccess,
-        authBuilder =>
-        {
-            authBuilder.RequireClaim("scope", "gogameshop_api.all");
-        }
-    )
-    .AddPolicy(
-        Policies.AdminAccess,
-        authBuilder =>
-        {
-            authBuilder.RequireClaim("scope", "gogameshop_api.all");
-            authBuilder.RequireRole(Roles.Admin);
-        }
-    );
+// This is an extension method at /Shared/Authorization
+builder.AddGoGameShopAuthorization();
 
 // builder.Services.AddExceptionHandler<GlobalErrorHandler>(); Kept for reference
 builder.Services.AddProblemDetails();
@@ -58,13 +43,15 @@ var app = builder.Build();
 
 // app.UseMiddleware<RequestTimingMiddleware>(); Kept for reference
 
+app.UseStaticFiles();
+
+// ASP.NET core uses the middleware for authorization automatically, however, in this case we need to explicitly defince it because we need it to be after app.UseStaticFiles() so that static files render for anonymous users.
+app.UseAuthorization();
 
 app.MapGames();
 app.MapGetGenres();
 app.MapGetRatings();
 app.MapBaskets();
-
-app.UseStaticFiles();
 
 app.UseHttpLogging();
 app.UseStatusCodePages();

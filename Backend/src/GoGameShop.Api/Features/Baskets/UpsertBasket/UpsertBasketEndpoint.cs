@@ -9,42 +9,41 @@ public static class UpsertBasketEndpoint
     {
         // PUT /baskets/{id}
         app.MapPut(
-                "/{userId}",
-                async (Guid userId, UpsertBasketDto upsertBasketDto, GoGameShopContext dbContext) =>
-                {
-                    var basket = await dbContext
-                        .Baskets.Include(basket => basket.Items)
-                        .FirstOrDefaultAsync(basket => basket.Id == userId);
+            "/{userId}",
+            async (Guid userId, UpsertBasketDto upsertBasketDto, GoGameShopContext dbContext) =>
+            {
+                var basket = await dbContext
+                    .Baskets.Include(basket => basket.Items)
+                    .FirstOrDefaultAsync(basket => basket.Id == userId);
 
-                    if (basket is null)
+                if (basket is null)
+                {
+                    basket = new CustomerBasket
                     {
-                        basket = new CustomerBasket
-                        {
-                            Id = userId,
-                            Items = upsertBasketDto
-                                .Items.Select(item => new BasketItem
-                                {
-                                    GameId = item.GameId,
-                                    Quantity = item.Quantity
-                                })
-                                .ToList()
-                        };
-                        dbContext.Baskets.Add(basket);
-                    }
-                    else
-                    {
-                        basket.Items = upsertBasketDto
+                        Id = userId,
+                        Items = upsertBasketDto
                             .Items.Select(item => new BasketItem
                             {
                                 GameId = item.GameId,
                                 Quantity = item.Quantity
                             })
-                            .ToList();
-                    }
-                    await dbContext.SaveChangesAsync();
-                    return Results.NoContent();
+                            .ToList()
+                    };
+                    dbContext.Baskets.Add(basket);
                 }
-            )
-            .RequireAuthorization(Policies.UserAccess);
+                else
+                {
+                    basket.Items = upsertBasketDto
+                        .Items.Select(item => new BasketItem
+                        {
+                            GameId = item.GameId,
+                            Quantity = item.Quantity
+                        })
+                        .ToList();
+                }
+                await dbContext.SaveChangesAsync();
+                return Results.NoContent();
+            }
+        );
     }
 }

@@ -7,12 +7,13 @@ public static class GetGenresEndpoint
     public static void MapGetGenres(this IEndpointRouteBuilder app)
     {
         app.MapGet(
-            "/genres",
-            async (GoGameShopContext dbContext) =>
-                await dbContext
-                    .Genres.Select(genre => new GameGenresDto(genre.Id, genre.Name))
-                    .AsNoTracking()
-                    .ToListAsync()
-        );
+                "/genres",
+                async (GoGameShopContext dbContext) =>
+                    await dbContext
+                        .Genres.Select(genre => new GameGenresDto(genre.Id, genre.Name))
+                        .AsNoTracking()
+                        .ToListAsync()
+            )
+            .AllowAnonymous();
     }
 }
