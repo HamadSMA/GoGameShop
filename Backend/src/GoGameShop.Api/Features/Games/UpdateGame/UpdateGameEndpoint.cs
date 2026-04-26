@@ -27,6 +27,7 @@ public static class UpdateGameEndpoint
                     {
                         return Results.Unauthorized();
                     }
+
                     var existingGame = await DbContext.Games.FindAsync(id);
 
                     if (existingGame is null)

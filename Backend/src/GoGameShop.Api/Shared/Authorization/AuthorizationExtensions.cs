@@ -12,10 +12,7 @@ public static class AuthorizationExtensions
             .Services.AddAuthorizationBuilder()
             .AddFallbackPolicy(
                 Policies.UserAccess,
-                authBuilder =>
-                {
-                    authBuilder.RequireClaim("scope", ApiAccessScope);
-                }
+                authBuilder => { authBuilder.RequireClaim("scope", ApiAccessScope); }
             )
             .AddPolicy(
                 Policies.AdminAccess,

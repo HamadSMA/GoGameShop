@@ -1,4 +1,7 @@
+using System.Security.Claims;
+using GoGameShop.Api.Features.Baskets.Authorization;
 using GoGameShop.Api.Shared.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace GoGameShop.Api.Features.Baskets.UpsertBasket;
@@ -10,7 +13,13 @@ public static class UpsertBasketEndpoint
         // PUT /baskets/{id}
         app.MapPut(
             "/{userId}",
-            async (Guid userId, UpsertBasketDto upsertBasketDto, GoGameShopContext dbContext) =>
+            async (
+                Guid userId,
+                UpsertBasketDto upsertBasketDto,
+                GoGameShopContext dbContext,
+                IAuthorizationService authorizationService,
+                ClaimsPrincipal user
+            ) =>
             {
                 var basket = await dbContext
                     .Baskets.Include(basket => basket.Items)
@@ -41,6 +50,18 @@ public static class UpsertBasketEndpoint
                         })
                         .ToList();
                 }
+
+                var authResult = await authorizationService.AuthorizeAsync(
+                    user,
+                    basket,
+                    new OwnerOrAdminRequirement()
+                );
+
+                if (!authResult.Succeeded)
+                {
+                    return Results.Forbid();
+                }
+
                 await dbContext.SaveChangesAsync();
                 return Results.NoContent();
             }

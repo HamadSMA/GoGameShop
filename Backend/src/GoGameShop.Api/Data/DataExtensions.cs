@@ -11,6 +11,7 @@ public static class DataExtensions
             app.Logger.LogInformation("Skipping database initialization (OpenAPI generation mode)");
             return;
         }
+
         await app.MigrateDbAsync();
         await app.SeedDbAsync();
         app.Logger.LogInformation("Database initialized");

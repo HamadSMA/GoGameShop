@@ -1,6 +1,8 @@
 using GoGameShop.Api.Features.Baskets;
+using GoGameShop.Api.Features.Baskets.Authorization;
 using GoGameShop.Api.Shared.Authorization;
 using GoGameShop.Api.Shared.FileUpload;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,20 +11,6 @@ var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
 builder.Services.AddSqlite<GoGameShopContext>(connectionString);
 builder.Services.AddValidation();
 
-// Authentication service adds its middleware automatically, no need to add it to the pipeline.
-builder
-    .Services.AddAuthentication()
-    .AddJwtBearer(options =>
-    {
-        options.MapInboundClaims = false;
-        options.TokenValidationParameters.RoleClaimType = "role";
-    });
-
-// Authorization service adds its middleware automatically, no need to add it to the pipeline.
-// This is an extension method at /Shared/Authorization
-builder.AddGoGameShopAuthorization();
-
-// builder.Services.AddExceptionHandler<GlobalErrorHandler>(); Kept for reference
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpLogging(options =>
 {
@@ -34,10 +22,26 @@ builder.Services.AddHttpLogging(options =>
     options.CombineLogs = true;
 });
 
+// This is an extension method at /Shared/Authorization
+builder.AddGoGameShopAuthorization();
+
+// builder.Services.AddExceptionHandler<GlobalErrorHandler>(); Kept for reference
+
 builder.Services.AddOpenApi();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<FileUploader>();
+
+// Authentication and Authorization service add its middleware automatically, no need to add it to the pipeline unless it creates conflict, then it must be added manually in the pipeline
+
+builder
+    .Services.AddAuthentication()
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters.RoleClaimType = "role";
+    });
+builder.Services.AddSingleton<IAuthorizationHandler, BasketAuthorizationHandler>();
 
 var app = builder.Build();
 

@@ -1,8 +1,6 @@
 // NO longer used, kept for reference.
 
 
-
-
 // namespace GoGameShop.Api.Data;
 //
 // public class GoGameShopData
