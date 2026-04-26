@@ -148,6 +148,103 @@ public static class Roles
 `static class` — the class cannot be instantiated. It's a pure namespace for constants, the same pattern as C's header-file defines.
 
 ---
+### Resource-Based Authorization
+
+**What it is:**
+Policy-based authorization can only inspect the JWT — it has no access to data from the database. Resource-based authorization loads the specific object being acted on and passes it to a handler so the decision can be made against that data.
+
+The built-in `AuthorizationHandler<TRequirement>` takes one generic. Adding a second one — `AuthorizationHandler<TRequirement, TResource>` — tells the framework this handler also expects a concrete resource object at runtime:
+
+```csharp
+public class BasketAuthorizationHandler
+    : AuthorizationHandler<OwnerOrAdminRequirement, CustomerBasket>
+```
+
+This handler is only invoked when `CustomerBasket` is explicitly passed as the resource in an `AuthorizeAsync` call — it is not triggered by the fallback policy.
+
+---
+### `IAuthorizationRequirement` — The Rule Marker
+
+A requirement is a class that represents "the rule being checked." It can be empty (as here) or carry data (e.g., `MinimumAgeRequirement(18)`). The handler reads the requirement and decides whether the current user satisfies it.
+
+```csharp
+public class OwnerOrAdminRequirement : IAuthorizationRequirement { }
+```
+
+The class body is empty because the rule has no parameters — either you own the basket or you're an admin. The type itself is the signal.
+
+---
+### `HandleRequirementAsync` — Succeed or Stay Silent
+
+The method receives three things: the user context, the requirement, and the resource. Calling `context.Succeed(requirement)` grants access. Returning without calling it means the requirement was not satisfied — the framework treats silence as failure and returns `403 Forbidden`.
+
+```csharp
+var currentUserId = context.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+if (String.IsNullOrEmpty(currentUserId))
+{
+    return Task.CompletedTask; // silent failure → 403
+}
+if (Guid.Parse(currentUserId) == resource.Id || context.User.IsInRole(Roles.Admin))
+{
+    context.Succeed(requirement); // explicit grant
+}
+return Task.CompletedTask;
+```
+
+`FindFirstValue(JwtRegisteredClaimNames.Sub)` searches the token claims and returns the value of the `sub` claim — the user's unique ID — or `null` if the claim is absent.
+
+The basket's `Id` equals the user's `sub` by design: when a basket is first created, it is assigned `Id = userId` where `userId` comes from the route. Since the route is the user's own ID (sourced from their token), the basket ID and the user ID are the same GUID.
+
+---
+### `IAuthorizationService` — Imperative Authorization in an Endpoint
+
+Policy-based auth is **declarative** — you attach it to the endpoint at registration time. Resource-based auth is **imperative** — you call it manually inside the handler after loading the resource from the database.
+
+`IAuthorizationService` is injected like any other service. In Minimal APIs, `ClaimsPrincipal` can be injected directly as a parameter — the framework resolves it from `HttpContext.User`.
+
+```csharp
+async (
+    Guid userId,
+    UpsertBasketDto upsertBasketDto,
+    GoGameShopContext dbContext,
+    IAuthorizationService authorizationService,
+    ClaimsPrincipal user
+) =>
+{
+    // load or create basket first...
+
+    var authResult = await authorizationService.AuthorizeAsync(
+        user,
+        basket,
+        new OwnerOrAdminRequirement()
+    );
+
+    if (!authResult.Succeeded)
+    {
+        return Results.Forbid();
+    }
+
+    await dbContext.SaveChangesAsync();
+    return Results.NoContent();
+}
+```
+
+The basket is loaded **before** the authorization check because the handler needs the actual object to compare the owner ID. Saving to the database happens **after** — only if the check passes.
+
+`Results.Forbid()` returns `403 Forbidden` when the user is authenticated but not permitted. This is different from `Results.Unauthorized()` (`401`), which signals that the caller is not authenticated at all.
+
+---
+### Registering the Handler
+
+Authorization handlers are registered with the DI container as `IAuthorizationHandler`. The framework discovers all registered handlers automatically when `AuthorizeAsync` is called.
+
+```csharp
+builder.Services.AddSingleton<IAuthorizationHandler, BasketAuthorizationHandler>();
+```
+
+`Singleton` is appropriate here because the handler holds no request-specific state — it reads from the context and resource passed in by the framework each time.
+
+---
 ### Applying Policies to Endpoints
 
 **What it is:**

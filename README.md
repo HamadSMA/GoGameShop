@@ -122,6 +122,7 @@ GoGameShop/
 │   │       │   │   ├── UpdateGame/       # PUT /games/{id} (endpoint + DTOs)
 │   │       │   │   └── GamesEndpoints.cs # Maps all /games routes
 │   │       │   ├── Baskets/
+│   │       │   │   ├── Authorization/    # BasketAuthorizationHandler (resource-based auth)
 │   │       │   │   ├── GetBasket/        # GET /baskets/{userId} (endpoint + DTOs)
 │   │       │   │   ├── UpsertBasket/     # PUT /baskets/{userId} (endpoint + DTOs)
 │   │       │   │   └── BasketEndpoints.cs # Maps all /baskets routes
@@ -161,7 +162,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ```
 ▓▓▓▓▓▓▓▓▓▓  REST API, CRUD, DTOs, EF Core, SQLite, Vertical Slice Architecture
 ▓▓▓▓▓▓▓▓▓▓  HTTP Logging, Middleware, Error Handling, Pagination, Search, OpenAPI, File System
-▓▓▓▓▓▓░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, Docker
+▓▓▓▓▓▓▓░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization
 ░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
 ░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire
 ░░░░░░░░░░  Stripe Payments, Service Bus, Outbox Pattern, Background Workers
