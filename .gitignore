@@ -109,6 +109,17 @@ wwwroot/
 
 ## Postman
 postman/
+.postman/
+
+## Editor / IDE
+.vscode/
+
+## .NET launch profiles
+launchSettings.json
+
+## App settings (use dotnet user-secrets for real secrets)
+appsettings*.json
+!appsettings.Example.json
 
 ## macOS
 .DS_Store
