@@ -162,7 +162,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ```
 ▓▓▓▓▓▓▓▓▓▓  REST API, CRUD, DTOs, EF Core, SQLite, Vertical Slice Architecture
 ▓▓▓▓▓▓▓▓▓▓  HTTP Logging, Middleware, Error Handling, Pagination, Search, OpenAPI, File System
-▓▓▓▓▓▓▓░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization
+▓▓▓▓▓░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, OpenID Connect, Keycloak
 ░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
 ░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire
 ░░░░░░░░░░  Stripe Payments, Service Bus, Outbox Pattern, Background Workers

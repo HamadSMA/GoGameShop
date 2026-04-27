@@ -1,0 +1,13 @@
+services:
+  nginx:
+    image: nginx
+    container_name: nginx-test
+    ports:
+      - "8080:80"
+    volumes:
+      - nginx-data:/usr/share/nginx/html
+    environment:
+      - MY_VAR="Hello my guy" 
+    
+volumes:
+  nginx-data:
