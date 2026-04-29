@@ -17,3 +17,4 @@
 | Object-Oriented Programming | [notes/06-oop.md](notes/06-oop.md) |
 | Authentication & Authorization | [notes/07-auth.md](notes/07-auth.md) |
 | Docker | [notes/08-docker.md](notes/08-docker.md) |
+| Keycloak | [notes/09-keycloak.md](notes/09-keycloak.md) |
