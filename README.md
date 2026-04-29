@@ -28,6 +28,7 @@ GoGameShop is a backend service designed to manage a catalog of digital games, i
 
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [dotnet-ef](https://learn.microsoft.com/en-us/ef/core/cli/dotnet) Global Tool (for managing migrations)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for running Keycloak locally)
 
 ## Setup & Run
 
@@ -49,7 +50,14 @@ GoGameShop is a backend service designed to manage a catalog of digital games, i
     ```
     *Note: The application calls `InitializeDbAsync()` on startup, which automatically applies migrations and seeds initial data (9 genres, 3 ratings).*
 
-4.  **Run the application:**
+4.  **Start Keycloak (local IAM server):**
+    ```bash
+    cd Backend/localinfra
+    docker compose up -d
+    ```
+    The Keycloak admin console is available at `http://localhost:8080` (bootstrap credentials: `admin` / `admin`). The committed `gogameshop-realm.json` can be imported via *Realm settings → Action → Partial import* to set up the realm, roles, and clients.
+
+5.  **Run the application:**
     ```bash
     dotnet run --project Backend/src/GoGameShop.Api
     ```
@@ -100,6 +108,9 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 ```text
 GoGameShop/
 ├── Backend/
+│   ├── localinfra/                       # Local development infrastructure
+│   │   ├── docker-compose.yml            # Keycloak container definition
+│   │   └── gogameshop-realm.json         # Keycloak realm export (roles, clients, settings)
 │   ├── src/
 │   │   └── GoGameShop.Api/               # Main API project
 │   │       ├── Data/                     # EF Core DbContext, seeding, and migrations
@@ -160,11 +171,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Roadmap
 
 ```
-▓▓▓▓▓▓▓▓▓▓  REST API, CRUD, DTOs, EF Core, SQLite, Vertical Slice Architecture
-▓▓▓▓▓▓▓▓▓▓  HTTP Logging, Middleware, Error Handling, Pagination, Search, OpenAPI, File System
-▓▓▓▓▓░░░░░  JWT Authentication, OAuth 2.0, Role & Policy Authorization, OpenID Connect, Keycloak
-░░░░░░░░░░  Azure App Service, Blob Storage, PostgreSQL, Key Vault, CDN
-░░░░░░░░░░  Containerization, Azure Container Apps, Health Checks, .NET Aspire
-░░░░░░░░░░  Stripe Payments, Service Bus, Outbox Pattern, Background Workers
-░░░░░░░░░░  Integration Testing, CI/CD Pipelines
+▓▓▓▓▓▓▓▓▓▓  Vertical Slice Architecture, REST API, CRUD, DTOs, EF Core, SQLite
+▓▓▓▓▓▓▓▓▓▓  Middleware, HTTP Logging, Error Handling, Pagination, Search, File System, OpenAPI
+▓▓▓▓▓▓▓░░░  JWT Authentication, Role & Policy Authorization, Keycloak, OAuth 2.0, OpenID Connect
+░░░░░░░░░░  Azure App Service, PostgreSQL, Blob Storage, Key Vault, CDN, CI/CD Pipelines
+░░░░░░░░░░  Containerization, .NET Aspire, Health Checks, Azure Container Apps
+░░░░░░░░░░  Background Workers, Service Bus, Outbox Pattern, Stripe Payments
+░░░░░░░░░░  Integration Testing
 ```
