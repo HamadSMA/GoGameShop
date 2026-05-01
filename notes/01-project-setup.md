@@ -2,25 +2,25 @@
 
 ### ASP.NET Core & Minimal APIs
 
-**What it is:**
-ASP.NET Core is Microsoft's framework for building web applications and APIs with C#. A **Minimal API** is a lightweight way to define HTTP endpoints directly in code — without needing controllers, classes, or a lot of boilerplate.
+**The problem:**
+Traditional ASP.NET MVC requires a controller class for every group of endpoints, with attribute-routed methods, model binders, and a fair bit of boilerplate per route. For a small API, that's a lot of ceremony for what amounts to "respond to GET /games."
 
-**Why it's used:**
-Traditional ASP.NET used "controllers" — classes with many methods. Minimal APIs skip that overhead and let you write endpoints directly, which is simpler and faster for APIs.
+**What it does:**
+ASP.NET Core is Microsoft's framework for building web apps and APIs with C#. A **Minimal API** is a lightweight way to define HTTP endpoints directly in code — `app.MapGet("/games", handler)` with no controller class, no attributes, no inherited base. The result is less code per endpoint and a faster path from "I need a route" to a running route.
 
-**How it fits:**
+**In code:**
 Every endpoint in this project (`MapGet`, `MapPost`, etc.) is a Minimal API. Instead of a `GamesController` class, there is a `MapGames()` method that registers all game-related routes.
 
 ---
 ### Program.cs — The Entry Point
 
-**What it is:**
-`Program.cs` is the starting point of a .NET application. Every .NET app has one. It's where you configure services (things the app needs) and the request pipeline (how requests are handled).
+**The problem:**
+A web app has dozens of moving pieces — database, logging, routing, middleware, configuration, validation — that all need to be wired together in a specific order before the first request arrives. Spreading that wiring across many files makes it impossible to reason about what's actually registered or what runs first.
 
-**Why it's used:**
-.NET needs a single place to wire everything together — the database, routing, middleware, and startup logic all get registered here.
+**What it does:**
+`Program.cs` is the single entry point where everything gets configured and the app starts. It splits cleanly into two phases — *builder* (register services into the DI container) and *app* (configure the pipeline and run) — so the lifecycle is obvious from top to bottom.
 
-**How it fits:**
+**In code:**
 ```csharp
 var builder = WebApplication.CreateBuilder(args);  // Creates the app builder
 var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
@@ -63,8 +63,11 @@ The two phases are:
 ---
 ### WebApplication & WebApplicationBuilder
 
+**The problem:**
+Setting up a web app is naturally two-phased: first declare what exists (services, config sources, logging providers), then use those declarations to wire up the pipeline and start handling requests. If both phases share one object, it's easy to accidentally consume a service before it's fully registered, or to mutate registrations after they've been baked in.
+
 **What they are:**
-`WebApplicationBuilder` is the object returned by `WebApplication.CreateBuilder(args)`. It's where you configure everything *before* the app starts — services, logging, configuration sources. Once you call `builder.Build()`, you get back a `WebApplication`, which is the running app itself.
+`WebApplicationBuilder` (returned by `WebApplication.CreateBuilder(args)`) is for the *registration* phase. Calling `builder.Build()` locks the registrations and returns a `WebApplication` — the running app, used for the *usage* phase (mapping routes, adding middleware, calling `Run()`).
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);  // WebApplicationBuilder
@@ -73,9 +76,6 @@ var app = builder.Build();                         // WebApplication
 // ... map routes on app ...
 app.Run();
 ```
-
-**Why this two-object pattern exists:**
-The separation is intentional. The builder phase is for *registration* — you're telling the DI container what exists. The app phase is for *usage* — you're consuming those registrations to configure the pipeline. Mixing the two would make it easy to accidentally use services before they're fully configured.
 
 **What `WebApplication.CreateBuilder()` preconfigures for you:**
 Calling `CreateBuilder()` is not a blank slate — it sets up a large number of defaults so you don't have to:
@@ -233,13 +233,13 @@ A quick reference for the most important types in ASP.NET Core and the methods y
 ---
 ### The .csproj File — Project Configuration
 
-**What it is:**
-The `.csproj` file (C# project file) is an XML file that defines the project's settings and dependencies. Think of it as the project's identity card.
+**The problem:**
+A project needs to declare which .NET version it targets, which NuGet packages it depends on, and which compiler options apply — and that declaration needs to be deterministic, version-controllable, and machine-readable for the build, restore, and IDE all to agree.
 
-**Why it's used:**
-.NET needs to know what framework version you're targeting, what NuGet packages (libraries) you depend on, and what compiler options to use.
+**What it does:**
+The `.csproj` file is an XML manifest for the project: target framework, package references, language settings, build options. The .NET SDK and every IDE read this same file, so the project's identity is defined in one place and is the same everywhere it's built.
 
-**How it fits in this project:**
+**In code:**
 ```xml
 <TargetFramework>net10.0</TargetFramework>   <!-- Use .NET 10 -->
 <Nullable>enable</Nullable>                  <!-- Enable nullable reference types -->
@@ -256,13 +256,13 @@ The `.csproj` file (C# project file) is an XML file that defines the project's s
 ---
 ### appsettings.json — App Configuration
 
-**What it is:**
-A JSON file that stores configuration values for your application — things like database connection strings, log levels, and feature flags.
+**The problem:**
+Values like connection strings, log levels, and feature flags differ between environments and change over time. Hardcoding them means recompiling for every tweak; spreading them across env vars alone makes the configuration shape invisible to the code that reads it.
 
-**Why it's used:**
-You don't want to hardcode values like database paths inside your code. Storing them in a config file means you can change them without recompiling. You can also have different configs per environment (Development, Production).
+**What it does:**
+`appsettings.json` is the file-based source for application configuration. ASP.NET Core layers it with `appsettings.{Environment}.json` and environment variables (later sources override earlier ones), so the same code reads the right value in dev, staging, and production without changes.
 
-**How it fits:**
+**In code:**
 ```json
 "ConnectionStrings": {
   "GoGameShop": "Data Source=GoGameShop.db"
@@ -320,13 +320,13 @@ The key difference: HTTP logging is `Information` in production (base config) bu
 ---
 ### Logging
 
-**What it is:**
-ASP.NET Core has a built-in logging system. You inject an `ILogger<T>` into any class or endpoint and call methods like `LogInformation()`, `LogWarning()`, or `LogError()` to write log messages. `WebApplicationBuilder` sets this up automatically — you don't need to configure anything to get started.
+**The problem:**
+`Console.WriteLine` is unstructured, unfilterable, and tied to one destination. As soon as the app needs to ship logs to a file, an aggregator, or a cloud service — or to silence noisy categories without recompiling — print-style logging falls apart.
 
-**Why it's used:**
-`Console.WriteLine` has no log level, no filtering, no structured output, and no way to route messages to different destinations (file, cloud, monitoring tools). The built-in logger does all of that, and is replaceable with third-party providers (Serilog, NLog, etc.) without changing the calling code.
+**What it does:**
+ASP.NET Core's built-in `ILogger<T>` is a structured logger registered automatically by `WebApplicationBuilder`. Calls capture severity (`Information`, `Warning`, `Error`, …) and named properties — not just text — so log aggregators can filter and query, and a swap to Serilog or NLog later doesn't change the call sites.
 
-**How it fits — injecting into an endpoint:**
+**In code — injecting into an endpoint:**
 ```csharp
 app.MapPost("/", async (
     GoGameShopContext dbContext,
@@ -415,13 +415,13 @@ The log category for HTTP logging is `Microsoft.AspNetCore.HttpLogging.HttpLoggi
 ---
 ### Global Usings
 
-**What it is:**
-A C# feature that lets you declare `using` statements once in a single file (`GlobalUsings.cs`) and have them apply across every file in the project.
+**The problem:**
+The same handful of namespaces (`System`, the project's `Models`, `Data`, `Features`) get imported at the top of nearly every file. Each `using` line is small, but multiplied across the project they add up to noise and merge friction without communicating anything specific to the file.
 
-**Why it's used:**
-Without global usings, you'd have to write `using GoGameShop.Api.Models;` at the top of every file that references a model. Global usings eliminate that repetition.
+**What it does:**
+A `global using` declaration in one file (`GlobalUsings.cs`) applies the import across every file in the project. Project-wide namespaces get declared once and disappear from individual files, leaving only the per-file imports that actually convey something.
 
-**How it fits:**
+**In code:**
 ```csharp
 global using GoGameShop.Api.Models;
 global using GoGameShop.Api.Data;
@@ -434,8 +434,11 @@ Now any file in the project can reference `Game`, `GoGameShopContext`, or `GetGa
 ---
 ### Middleware
 
-**What it is:**
-Middleware is code that sits in the HTTP request pipeline and processes every request and response that passes through the application. Each piece of middleware can inspect or modify the request, call the next middleware in the chain, and then inspect or modify the response on the way back.
+**The problem:**
+Cross-cutting concerns — logging, auth, exception handling, compression, CORS — apply to every request, but baking them into each endpoint duplicates code and inevitably misses cases. There needs to be a way to layer behavior around the endpoint instead of inside it.
+
+**What it does:**
+**Middleware** is code that sits in the HTTP request pipeline and processes every request and response that passes through. Each piece can inspect or modify the request on the way in, call the next middleware, then inspect or modify the response on the way out — letting cross-cutting concerns live outside the endpoint.
 
 ```
 Incoming request
@@ -526,8 +529,11 @@ Additional constructor dependencies (like `ILogger`) are resolved from DI automa
 ---
 ### Middleware Order
 
-**What it is:**
-The order in which you call `app.Use*()` in `Program.cs` is the order middleware executes on the way in, and the reverse on the way out. Getting this wrong causes bugs — for example, putting authorization before routing means the router never ran, so there's no endpoint to authorize.
+**The problem:**
+Middleware runs in registration order on the way in and the reverse on the way out — and the order is load-bearing. Authorization before routing means the router hasn't run yet, so the auth check has no endpoint to inspect. Static files after auth means anonymous users get `401` for images. Both bugs are silent and easy to miss.
+
+**What to know:**
+The order in which you call `app.Use*()` in `Program.cs` *is* the pipeline order. There's no auto-sort; the framework runs them as you wrote them. The recommended ordering below isn't arbitrary — each item depends on something earlier having already run.
 
 **Why order matters:**
 ```
@@ -573,11 +579,11 @@ Any middleware can stop the pipeline by not calling `await next(context)`. This 
 ---
 ### Options Pattern
 
-**What it is:**
-The Options pattern binds a section of `appsettings.json` to a strongly-typed C# class, and makes that class available via dependency injection. It's the recommended way to consume configuration in ASP.NET Core — instead of reading raw strings with `builder.Configuration["Key"]`, you work with a typed object.
+**The problem:**
+Reading config with `builder.Configuration["Key"]` returns raw strings — no type safety, no IntelliSense, no validation, and the shape of the config is defined nowhere. Misspelling a key or forgetting a value fails silently at runtime, often only on the unlucky environment where it matters.
 
-**Why it's used:**
-Raw configuration strings have no type safety, no validation, and no IntelliSense. A typed options class gives you all three, and centralizes where config shape is defined.
+**What it does:**
+The **Options pattern** binds a section of `appsettings.json` to a strongly-typed C# class and exposes it through DI. Config becomes a typed object with named properties; the shape lives in one place; the compiler catches typos; and validation can attach to the class.
 
 **How it works:**
 
@@ -626,13 +632,13 @@ app.MapGet("/config", (IOptions<GameStoreOptions> options) =>
 ---
 ### IHttpContextAccessor — Accessing HttpContext Outside a Handler
 
-**What it is:**
-`IHttpContextAccessor` is a service that lets you access the current `HttpContext` from anywhere in your code — not just inside a route handler where `HttpContext` is available as a direct parameter.
+**The problem:**
+Inside a Minimal API handler, `HttpContext` is available as a parameter. But a service injected via DI (like a file uploader that needs the request's host to build a URL) has no handler parameter to read it from — and passing `HttpContext` through every method call manually is invasive and easy to forget.
 
-**Why it's used:**
-Inside a Minimal API handler, `HttpContext` can be injected as a parameter automatically. But inside a service class (like `FileUploader`) that is resolved from DI, there's no handler parameter — you need `IHttpContextAccessor` to reach the current request's context from within the service.
+**What it does:**
+`IHttpContextAccessor` is a service that exposes the current request's `HttpContext` via an `AsyncLocal<T>`. Any class injected with it can reach the request context as long as it runs within an HTTP request — outside one (a background job, a startup hook), it returns `null`.
 
-**How it fits:**
+**In code:**
 ```csharp
 // Register in Program.cs
 builder.Services.AddHttpContextAccessor();
@@ -657,13 +663,13 @@ public class FileUploader(IWebHostEnvironment environment, IHttpContextAccessor 
 ---
 ### launchSettings.json
 
-**What it is:**
-A development-only configuration file in the `Properties/` folder that defines how the app starts when you run `dotnet run` or launch from an IDE.
+**The problem:**
+Different developers run the app differently — different ports, different environments, different launch profiles for IDE vs CLI vs IIS Express. Without a shared local-launch config, every teammate has to remember the right command-line flags for their machine.
 
-**Why it's used:**
-It specifies the URL the app listens on, the environment (Development/Production), and whether to open a browser automatically. This file is never deployed — it's only for local development.
+**What it does:**
+`launchSettings.json` (in `Properties/`) defines local-development launch profiles: which URL to bind, which environment to set, whether to launch a browser. The file is checked into version control but never deployed — production gets its config from environment variables, not this file.
 
-**How it fits:**
+**In code:**
 ```json
 "http": {
     "applicationUrl": "http://localhost:5078",

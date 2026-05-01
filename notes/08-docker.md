@@ -2,7 +2,10 @@
 
 ### Introduction
 
-**What it is:**
+**The problem:**
+"It works on my machine" depends on installed runtimes, OS versions, environment variables, and a hundred other details that drift between developer laptops, CI runners, and production servers. Without a way to freeze that environment, every deploy is a gamble and every onboarding doc is a 30-step trap.
+
+**What it does:**
 Docker packages an application and everything it needs to run — runtime, libraries, system tools, configuration — into a single unit called a **container**. The container behaves the same on any machine that has Docker installed, regardless of the host operating system.
 
 **Image vs container:**
@@ -11,16 +14,16 @@ Docker packages an application and everything it needs to run — runtime, libra
 
 You can start many containers from the same image; each one is independent.
 
-**Why it matters:**
-Without Docker, "it works on my machine" depends on installed runtimes, OS versions, environment variables, and a hundred other details. With Docker, the container carries its environment with it — the host only needs Docker itself.
-
 ---
 ### Downloading Docker Images
 
-**What it is:**
-Images live in a registry — by default, Docker Hub (`hub.docker.com`). The `docker pull` command downloads an image to your local machine so it can be used to start containers.
+**The problem:**
+An image has to exist locally before you can run a container from it. Building everything from scratch each time would be slow; somewhere has to be a shared store of pre-built images you can fetch.
 
-**How it fits:**
+**What it does:**
+Images live in a **registry** — by default, Docker Hub (`hub.docker.com`). The `docker pull` command downloads an image to your local machine so it can be used to start containers. (You don't usually need to pull manually — `docker run` pulls automatically if the image isn't already present.)
+
+**In code:**
 ```
 docker pull nginx
 docker pull nginx:alpine
@@ -29,15 +32,16 @@ docker pull mcr.microsoft.com/dotnet/aspnet:9.0
 
 `nginx` alone pulls the `latest` tag. `nginx:alpine` pulls the Alpine-based variant — a much smaller image (~40MB vs ~190MB) built on Alpine Linux instead of Debian.
 
-You don't usually need to pull manually — `docker run` pulls the image automatically if it's not already on your machine.
-
 ---
 ### Running Docker Containers
 
-**What it is:**
-`docker run` creates a new container from an image and starts it.
+**The problem:**
+An image is just a frozen filesystem; nothing happens until you turn it into a live process. You need a way to instantiate a container, control whether it stays in the foreground, and refer back to it later by name.
 
-**How it fits:**
+**What it does:**
+`docker run` creates a new container from an image and starts it. Flags control its lifecycle (`-d` to detach, `--rm` for one-off cleanup) and its identity (`--name` for a stable handle instead of a random one like `quirky_einstein`).
+
+**In code:**
 ```
 docker run nginx
 ```
@@ -58,49 +62,52 @@ This starts nginx in the background, named `nginx-test`. Without a name, you'd h
 ---
 ### Exposing Ports
 
-**What it is:**
-By default, a container is isolated from the host network — even if nginx is listening on port 80 inside the container, you can't reach it from your browser. The `-p` flag publishes a container port to a host port.
+**The problem:**
+Containers are network-isolated by default. Even if a service inside is listening on port 80, the host can't reach it — and you can't run two containers that both want port 80 if they share the host network namespace.
 
-**How it fits:**
+**What it does:**
+The `-p` flag publishes a container port to a host port, mapping `HOST:CONTAINER`. The container's port stays whatever the application uses; the host port is your choice, so multiple containers can each listen on their own internal `80` and be reached on different host ports (`8080`, `8081`, …).
+
+**In code:**
 ```
 docker run -d --name nginx-test -p 8080:80 nginx
 ```
 
-The format is `HOST:CONTAINER`. This maps host port `8080` to container port `80`. Visiting `http://localhost:8080` in the browser hits nginx inside the container.
-
-**Why the two ports differ:**
-The container's port (`80`) is fixed by the application — nginx listens on 80 by default. The host port (`8080`) is your choice. Multiple containers can each listen on their own internal port `80` as long as you map them to different host ports (`8080`, `8081`, etc.).
+This maps host port `8080` to container port `80`. Visiting `http://localhost:8080` in the browser hits nginx inside the container.
 
 ---
 ### Environment Variables
 
-**What it is:**
-Containers receive configuration through environment variables — the same mechanism the OS uses for `PATH`, `HOME`, etc. The `-e` flag sets one.
+**The problem:**
+The same image needs to behave differently in dev, staging, and production — different database URLs, different API keys, different log levels. Baking those into the image means rebuilding per environment and risking secrets in committed layers.
 
-**How it fits:**
+**What it does:**
+Containers receive configuration through environment variables — the same mechanism the OS uses for `PATH`, `HOME`, etc. The `-e` flag sets one at run time, so the image stays generic and each running container is parameterized at startup.
+
+**In code:**
 ```
 docker run -d --name nginx-test -e MY_VAR="Hello my guy" nginx
 ```
 
 Inside the container, `echo $MY_VAR` prints `Hello my guy`.
 
-**Why it's used:**
-The same image can be configured per environment without rebuilding it — database connection strings, API keys, log levels, feature flags. The image stays generic; the variables make each running container specific.
-
 ---
 ### Volumes
 
-**What it is:**
-A container's filesystem is **ephemeral** — when the container is removed, everything written inside it is lost. A **volume** is storage managed by Docker that lives outside the container's lifecycle, so data persists across restarts and replacements.
+**The problem:**
+A container's filesystem is **ephemeral** — when the container is removed, everything written inside it is lost. That's fine for stateless services, but a database, a Keycloak realm, or uploaded user files would vanish on every redeploy.
 
-**How it fits:**
+**What it does:**
+A **volume** is storage managed by Docker that lives outside the container's lifecycle. Mount it at a path inside the container and writes go to durable host storage instead of the throwaway container layer — so data survives restarts and replacements, and multiple containers can share the same volume.
+
+**In code:**
 ```
 docker run -d --name nginx-test -v nginx-data:/usr/share/nginx/html nginx
 ```
 
 The format is `VOLUME-NAME:CONTAINER-PATH`. This mounts a Docker-managed volume named `nginx-data` at `/usr/share/nginx/html` inside the container — the directory nginx serves files from.
 
-**Why it matters:**
+**Behaviors worth knowing:**
 - **Persistence** — delete and recreate the container; the volume's contents survive.
 - **Sharing** — multiple containers can mount the same volume.
 - **First-mount behavior** — if the volume is empty when first mounted, Docker copies the image's contents into it. So nginx's default welcome page still appears the first time.
@@ -108,10 +115,13 @@ The format is `VOLUME-NAME:CONTAINER-PATH`. This mounts a Docker-managed volume 
 ---
 ### Entering a Running Container
 
-**What it is:**
-`docker exec` runs a command inside a container that's already running. Combined with an interactive shell, it gives you a terminal inside the container — useful for inspecting files, checking logs, or debugging.
+**The problem:**
+A container is a running process with its own filesystem and process tree, but you can't `cd` into it from the host or attach a debugger directly. You need a way to step inside and poke at it — list files, tail logs, check why something isn't responding.
 
-**How it fits:**
+**What it does:**
+`docker exec` runs a command inside a container that's already running. Combined with an interactive shell, it effectively gives you a terminal session inside the container's environment without restarting it.
+
+**In code:**
 ```
 docker exec -it nginx-test /bin/bash
 ```
@@ -131,10 +141,13 @@ To leave the shell without stopping the container, type `exit`.
 ---
 ### Docker Compose
 
-**What it is:**
-Long `docker run` commands with many flags become hard to remember and share. **Compose** lets you describe one or more containers in a YAML file and start them all with a single command.
+**The problem:**
+Long `docker run` commands with many flags become hard to remember, share, and version-control. Real apps usually need *several* containers (API + database + cache) wired together — orchestrating that by hand is fragile and impossible to onboard a teammate to.
 
-**How it fits — `docker-compose.yml`:**
+**What it does:**
+**Compose** describes one or more containers in a YAML file and starts them all with a single command. The file is a versionable, shareable artifact — `docker compose up` recreates the entire stack identically on any machine.
+
+**In code — `docker-compose.yml`:**
 ```yaml
 services:
   nginx:
@@ -173,8 +186,8 @@ docker compose logs -f      # follow the logs
 ---
 ### Nginx Example
 
-**What it is:**
-nginx is a high-performance web server. Its official Docker image serves files from `/usr/share/nginx/html` on port `80` by default — making it a useful concrete example for trying out images, ports, volumes, and exec.
+**Why this one:**
+nginx is a high-performance web server. Its official Docker image serves files from `/usr/share/nginx/html` on port `80` by default — small, well-known, and exercises every concept above (image, port, volume, env var, exec) in one command.
 
 **Putting it together:**
 ```

@@ -2,15 +2,13 @@
 
 ### Introduction
 
-**What it is:**
-Keycloak is an open-source **identity and access management (IAM)** server. It handles authentication (verifying who a user is) and issues signed tokens that other applications — like the GoGameShop API — trust to authorize requests.
+**The problem:**
+Every application that needs login screens, password storage, password resets, social logins, MFA, and token issuance ends up reinventing the same identity stack — usually badly. Storing passwords correctly, rotating signing keys, and supporting SSO are all easy to get subtly wrong, and getting them wrong is a security incident.
 
-Instead of every application implementing its own login screens, password storage, password resets, social logins, and token issuance, you offload all of that to Keycloak. The application only needs to validate the tokens Keycloak issues.
+**What it does:**
+Keycloak is an open-source **identity and access management (IAM)** server. It centralizes authentication (verifying who a user is) and issues signed tokens that other applications trust to authorize requests — so each app only needs to validate the tokens, not implement the identity stack itself. It speaks **OpenID Connect** (an identity layer on top of OAuth 2.0) and signs tokens with **RS256**, both of which standard JWT middleware understands out of the box.
 
-**Why it fits this project:**
-The API already validates JWT bearer tokens — it just needs *something* to issue them. Keycloak is that something. It speaks **OpenID Connect** (an identity layer on top of OAuth 2.0) and signs tokens with **RS256**, both of which `AddJwtBearer` understands out of the box.
-
-**How it runs locally:**
+**In code:**
 Keycloak ships as a container image. The compose file in `Backend/localinfra/docker-compose.yml` starts it on port `8080` with bootstrap admin credentials and a persistent volume so users and configuration survive restarts:
 
 ```yaml
@@ -38,11 +36,11 @@ The admin console lives at `http://localhost:8080`.
 ---
 ### Realms and How to Create One
 
-**What a realm is:**
-A **realm** is an isolated tenant inside Keycloak. It owns its own users, roles, clients (applications), groups, and signing keys. Users in one realm cannot log into another. The built-in `master` realm is for administering Keycloak itself — application users should never live there.
+**The problem:**
+A single Keycloak instance might host multiple unrelated products, environments, or tenants — each with its own users, roles, and signing keys. Mixing them (or worse, mixing application users with the Keycloak admin account) creates a security and operational mess.
 
-**Why a separate realm:**
-Mixing application users with the Keycloak admin users creates a security and operational mess. The convention is one realm per logical product or environment — for this project, `gogameshop`.
+**What it does:**
+A **realm** is an isolated tenant inside Keycloak. It owns its own users, roles, clients (applications), groups, and signing keys — users in one realm cannot log into another. The built-in `master` realm is for administering Keycloak itself; application users should never live there. Convention is one realm per logical product or environment — for this project, `gogameshop`.
 
 **Creating one (admin console):**
 1. Log in to `http://localhost:8080` as the bootstrap admin
@@ -61,8 +59,11 @@ The API's `Authority` setting in `appsettings.Development.json` points at the re
 ---
 ### Creating Users
 
-**What it is:**
-A **user** in Keycloak is the identity that will eventually log in and receive a JWT. Keycloak stores their credentials, profile attributes, role assignments, and session state.
+**The problem:**
+The realm exists, but it's empty — there's no one to log in. Before any token can be issued, an identity has to exist somewhere that Keycloak can authenticate against.
+
+**What it does:**
+A **user** in Keycloak is the identity that logs in and receives a JWT. Keycloak stores their credentials, profile attributes, role assignments, and session state — the application never sees any of this directly, only the claims that end up in the JWT.
 
 **Steps (admin console):**
 1. Inside the `gogameshop` realm → **Users** → **Add user**
@@ -83,13 +84,16 @@ Username, email, profile attributes, **password hashes** (PBKDF2 by default — 
 ---
 ### Creating and Assigning Roles
 
-**What roles are:**
-A **role** is a named permission. Roles in Keycloak come in two flavors:
+**The problem:**
+Authentication tells you *who* the user is, but not *what they can do*. Some users are admins, some are regular customers, and the API needs a way to make that distinction without hardcoding usernames.
+
+**What it does:**
+A **role** is a named permission. Keycloak stores roles per realm and embeds them in the user's JWT, so the resource server can authorize based on role membership. Roles come in two flavors:
 
 - **Realm roles** — global within the realm (e.g., `Admin`, `User`). Any client in the realm can see them.
 - **Client roles** — scoped to a single client/application. Useful when different apps in the same realm need their own permission models.
 
-This project uses realm roles because it has one API and one logical permission model.
+Realm roles fit when there's one API and one logical permission model; client roles fit when multiple apps share a realm but each has its own permission set.
 
 **Creating a realm role:**
 1. Realm → **Realm roles** → **Create role**
@@ -108,10 +112,11 @@ The mapping happens in `Program.cs` via `JwtBearerOptions.TokenValidationParamet
 ---
 ### Export and Import Realm Configurations
 
-**Why export:**
-Everything done in the admin console — realm settings, roles, clients, groups, even users — lives in Keycloak's database. If the database is wiped, the volume deleted, or you move to a new machine, the configuration is gone. **Exporting** captures the realm as a JSON file that can be checked into version control and replayed later.
+**The problem:**
+Everything done in the admin console — realm settings, roles, clients, groups, even users — lives in Keycloak's database. Wipe the database, delete the volume, or move to a new machine and the configuration is gone. Worse, sharing a setup with a teammate via a 30-step "click here, then here" guide is brittle and error-prone.
 
-This is also how teams share Keycloak setups: instead of writing a 30-step "click here, then here" guide, commit `gogameshop-realm.json` and let the next developer import it.
+**What it does:**
+**Export** captures a realm as a JSON file that can be checked into version control and replayed on any other Keycloak instance. **Import** reads that file at startup and recreates the realm. Together they turn Keycloak configuration into versioned, shareable artifacts instead of ephemeral admin-console state.
 
 **Exporting a realm (admin console, partial export):**
 1. Select the realm → **Realm settings** → **Action** menu (top-right) → **Partial export**

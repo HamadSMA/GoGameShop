@@ -183,6 +183,170 @@ Use `new` only intentionally. The fact that it breaks through a base reference i
 
 ---
 
+### SOLID Principles
+
+Five design principles that target the failure modes that creep into OOP codebases as they grow. They're the *why* behind most of the patterns later in this file — every pattern below is essentially one or more of these principles made concrete.
+
+#### S — Single Responsibility Principle
+
+A class should have one reason to change.
+
+**The failure it targets:** Classes that do too many unrelated things accumulate edits from every direction. A `UserService` that registers users, sends welcome emails, and writes audit logs gets touched whenever any of those three concerns change — and a change for one risks breaking the others.
+
+```csharp
+// Violation — three responsibilities in one class
+public class UserService
+{
+    public User Register(string email, string password) { /* hash, save */ }
+    public void SendWelcomeEmail(User user)             { /* SMTP */ }
+    public void LogRegistration(User user)              { /* file I/O */ }
+}
+
+// Better — each responsibility lives in its own class
+public class UserService
+{
+    public UserService(IEmailSender email, IAuditLog log) { /* ... */ }
+    public User Register(string email, string password)   { /* ... */ }
+}
+```
+
+#### O — Open/Closed Principle
+
+Open for extension, closed for modification — you should be able to add new behavior without editing existing code.
+
+**The failure it targets:** Every new requirement triggers a `switch` or `if/else` edit somewhere central, and every edit risks breaking the cases that already worked.
+
+```csharp
+// Violation — adding a new discount type means editing this method
+public decimal Apply(string discountType, decimal price)
+{
+    if (discountType == "Percentage") return price * 0.9m;
+    if (discountType == "Fixed")      return price - 10;
+    return price;
+}
+
+// Better — a new discount is a new IDiscount implementation; nothing existing changes
+public interface IDiscount { decimal Apply(decimal price); }
+public class PercentageDiscount : IDiscount { /* ... */ }
+public class FixedDiscount      : IDiscount { /* ... */ }
+```
+
+#### L — Liskov Substitution Principle
+
+A subclass must be usable anywhere its base class is, without surprises.
+
+**The failure it targets:** Inheritance hierarchies that *look* substitutable but aren't. Code that works against the base type breaks when handed a derived type that violates the base's contract.
+
+```csharp
+// Violation — Square breaks Rectangle's contract
+public class Rectangle
+{
+    public virtual int Width  { get; set; }
+    public virtual int Height { get; set; }
+}
+public class Square : Rectangle
+{
+    public override int Width  { set { base.Width = base.Height = value; } }
+    public override int Height { set { base.Width = base.Height = value; } }
+}
+
+// Code expecting a Rectangle gets the wrong area when given a Square:
+Rectangle r = new Square();
+r.Width = 5; r.Height = 4;
+// Caller expects area 20, gets 16 — same code, different behavior. LSP broken.
+```
+
+#### I — Interface Segregation Principle
+
+Clients shouldn't depend on methods they don't use. Prefer many small interfaces over one fat one.
+
+**The failure it targets:** A "kitchen sink" interface forces every implementer to provide methods irrelevant to its use case, and every consumer to depend on far more surface area than it needs.
+
+```csharp
+// Violation — every consumer depends on every operation
+public interface IRepository<T>
+{
+    Task<T?>     GetByIdAsync(int id);
+    Task<List<T>> GetAllAsync();
+    Task         AddAsync(T item);
+    Task         DeleteAsync(int id);
+    Task<List<T>> SearchAsync(string query);
+    Task         BulkInsertAsync(IEnumerable<T> items);
+}
+
+// Better — split by capability; consumers depend on exactly what they need
+public interface IReadRepository<T>   { Task<T?> GetByIdAsync(int id); Task<List<T>> GetAllAsync(); }
+public interface IWriteRepository<T>  { Task     AddAsync(T item);     Task          DeleteAsync(int id); }
+public interface ISearchRepository<T> { Task<List<T>> SearchAsync(string query); }
+```
+
+#### D — Dependency Inversion Principle
+
+Depend on abstractions, not on concrete implementations.
+
+**The failure it targets:** A high-level class that `new`s its low-level dependencies is welded to those specific implementations. Swapping them (for tests, for a different provider) means editing the high-level class.
+
+```csharp
+// Violation — OrderService is welded to SmtpEmailSender
+public class OrderService
+{
+    private readonly SmtpEmailSender _email = new SmtpEmailSender();
+}
+
+// Better — depends on the abstraction; the concrete is supplied externally
+public class OrderService
+{
+    private readonly IEmailSender _email;
+    public OrderService(IEmailSender email) => _email = email;
+}
+```
+
+The Dependency Injection section later in this file is essentially DIP made operational — the framework supplies abstractions to consumers so the consumers never `new` a concrete.
+
+---
+
+### Composition vs Inheritance
+
+The Inheritance pillar said "prefer composition" without showing what that actually looks like. Here's the contrast.
+
+**Inheritance ("is-a"):**
+
+```csharp
+public class Animal { public void Eat()  { /* ... */ } }
+public class Dog    : Animal { public void Bark() { /* ... */ } }
+// Dog IS-A Animal. Dog inherits Eat() and adds Bark().
+```
+
+Inheritance is rigid: you can extend exactly one base, the relationship is fixed at compile time, and a change to the base ripples through every descendant.
+
+**Composition ("has-a"):**
+
+```csharp
+public class Engine { public void Start() { /* ... */ } }
+public class Car
+{
+    private readonly Engine _engine;
+    public Car(Engine engine) => _engine = engine;
+    public void Drive() { _engine.Start(); /* ... */ }
+}
+// Car HAS-A Engine. The Engine is a separate object that Car uses.
+```
+
+Composition is flexible: parts are independent objects, can be swapped at runtime (electric engine, gas engine), and a class can compose any number of capabilities — no single-base limit.
+
+**When inheritance fits:**
+- A genuine, stable "is-a" relationship (e.g. `SqlException : DbException`)
+- Template-method designs where the base defines a skeleton and derived classes fill in steps
+
+**When composition fits (most of the time):**
+- "Has-a" relationships
+- Behavior that needs to be swapped or combined (Strategy, Decorator)
+- Anywhere you'd otherwise reach for multiple inheritance
+
+Modern C# code leans heavily on composition + interfaces. Inheritance hierarchies more than two levels deep are almost always a smell — the deeper they go, the more brittle they become and the harder it is to follow which class actually defines a given method.
+
+---
+
 ### Getters and Setters
 
 C# properties are the standard way to expose (and control) access to data.

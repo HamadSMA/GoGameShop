@@ -2,13 +2,13 @@
 
 ### Route Groups
 
-**What it is:**
-A route group lets you apply a common URL prefix to a set of endpoints, so you don't repeat it on every single one.
+**The problem:**
+Endpoints that share a URL prefix (`/games`, `/games/{id}`, …) end up repeating that prefix on every registration. A typo in one place creates a silently broken route, and renaming the prefix means find-and-replacing every endpoint.
 
-**Why it's used:**
-Instead of writing `/games` in every game endpoint, you define the prefix once and all endpoints under the group inherit it.
+**What it does:**
+A route group lets you apply a common URL prefix to a set of endpoints once. Each child endpoint declares only its relative path; the group prepends the prefix and any shared metadata (auth, filters) is inherited automatically.
 
-**How it fits — `GamesEndpoints.cs`:**
+**In code — `GamesEndpoints.cs`:**
 ```csharp
 public static void MapGames(this IEndpointRouteBuilder app)
 {
@@ -27,16 +27,13 @@ Each child endpoint only defines its relative path (e.g., `/` or `/{id}`), not t
 ---
 ### DTOs (Data Transfer Objects)
 
-**What it is:**
-A DTO is a simple object used to transfer data between layers — specifically between your API and its clients. It defines exactly what data to accept (input) or return (output), separate from your database model.
+**The problem:**
+Returning the database entity straight to clients leaks internals — fields you didn't mean to expose, the wrong shape for the use case, and a coupling between the wire contract and the storage model that makes either one painful to change. Input shapes also rarely match output shapes (creating a game needs a name and price; reading one needs IDs and timestamps).
 
-**Why it's used:**
-You don't want to expose your full database model directly because:
-- Your model may have fields you don't want to expose (e.g., internal IDs, passwords)
-- Input and output shapes are often different
-- Validation should happen on the DTO, not the model
+**What it does:**
+A **DTO** is a purpose-built object for one direction of one operation — separate from the entity. It declares exactly which fields cross the API boundary, lets validation attach at the boundary instead of on the entity, and lets the wire contract evolve independently of the database schema.
 
-**How it fits — two types used here:**
+**In code — three types used here:**
 
 **Summary DTO** (for listing — returns minimal data):
 ```csharp
@@ -58,13 +55,13 @@ Notice that `GameSummaryDto` returns `Genre` as a `string` (the genre name), whi
 ---
 ### Data Annotations & Validation
 
-**What it is:**
-Data annotations are attributes (markers in square brackets) you put on DTO properties to declare validation rules. The framework enforces them automatically before your endpoint code runs.
+**The problem:**
+Client input cannot be trusted — fields might be missing, strings might be too long, numbers might be out of range. Validating each one by hand inside every endpoint creates duplicated checks, inconsistent error messages, and the constant risk that some new endpoint forgets a check entirely.
 
-**Why it's used:**
-You should never trust input from clients. Validation ensures the data is in the correct shape before you try to save it to the database.
+**What it does:**
+**Data annotations** are attributes (markers in square brackets) on DTO properties that declare validation rules. The framework enforces them automatically before the endpoint code runs — invalid requests get a `400 Bad Request` with a structured error body, and the handler never sees them.
 
-**How it fits — `CreateGameDto`:**
+**In code — `CreateGameDto`:**
 ```csharp
 public record CreateGameDto(
     [Required][StringLength(50)] string Name,      // Must be provided, max 50 chars
@@ -87,13 +84,13 @@ Common annotations:
 ---
 ### CRUD Endpoints
 
-**What it is:**
-CRUD stands for **Create, Read, Update, Delete** — the four fundamental operations on data. REST APIs map these to HTTP verbs: `POST`, `GET`, `PUT`/`PATCH`, `DELETE`.
+**The problem:**
+Every data-driven app needs the same four basic operations on its resources, but without a convention each team invents its own URL scheme — `/createGame`, `/games/new`, `/addGame` — and clients have to read docs to know which is which. Mixing verbs into URLs also makes caching, idempotency, and tooling support harder.
 
-**Why it's used:**
-Almost every data-driven app needs these four operations. Following REST conventions makes your API predictable and easy for others to use.
+**What it does:**
+CRUD — **Create, Read, Update, Delete** — maps cleanly onto HTTP verbs (`POST`, `GET`, `PUT`/`PATCH`, `DELETE`) with the resource as a noun in the path. The result is a predictable URL surface where any developer can guess the route and any tool can reason about it.
 
-**How it fits:**
+**In code:**
 
 | HTTP Verb | Route | Operation | Endpoint |
 |-----------|-------|-----------|----------|
@@ -121,13 +118,13 @@ EF Core "tracks" the entity retrieved by `FindAsync()`. When you mutate its prop
 ---
 ### HTTP Status Codes & Results
 
-**What it is:**
-HTTP status codes are standardized numbers included in every response that tell the client what happened. `Results` is an ASP.NET Core helper for building responses with the correct code.
+**The problem:**
+A client needs to know whether a request succeeded, failed for a reason it can recover from, or failed because the server is broken — and it needs that signal *before* parsing the response body, because the body might be empty, missing, or in an unexpected format. Without standardized signals, every API would invent its own.
 
-**Why it's used:**
-Clients (browsers, mobile apps, other APIs) rely on status codes to understand the outcome of a request without parsing the body.
+**What it does:**
+HTTP status codes are the standardized signal: `2xx` worked, `4xx` is the client's fault, `5xx` is the server's. `Results.Ok()`, `Results.NotFound()`, `Results.NoContent()`, etc. are ASP.NET Core helpers that build responses with the correct status code and (when applicable) the body, so endpoints don't have to assemble the response by hand.
 
-**How it fits:**
+**In code:**
 
 ```csharp
 Results.Ok(data)              // 200 — Success, returns data
@@ -147,13 +144,13 @@ If the game doesn't exist, return 404. Otherwise return 200 with the data.
 ---
 ### Constants & Named Endpoints
 
-**What it is:**
-Instead of hardcoding a string like `"GetGame"` in multiple places, you define it once as a constant. Named endpoints give an endpoint an identifier that can be referenced elsewhere.
+**The problem:**
+Some endpoint identifiers (the route name used by `CreatedAtRoute` to build a `Location` header) need to match in at least two places — where the endpoint is named and where it's referenced. Hardcoding the same magic string in both spots means a typo or rename silently breaks redirect URLs at runtime, with no compiler warning.
 
-**Why it's used:**
-If you hardcode a string in two places and later rename it, you have to find and update every occurrence. A constant means you change it once.
+**What it does:**
+A **named endpoint** is an endpoint registered with a stable identifier (`.WithName(...)`), and a constants class holds those identifiers as `nameof`-backed `const string` fields. Every reference goes through the same constant, so a rename propagates and the compiler catches stale references.
 
-**How it fits — `EndpointName.cs`:**
+**In code — `EndpointName.cs`:**
 ```csharp
 public class EndpointNames
 {
@@ -176,13 +173,13 @@ Results.CreatedAtRoute(EndpointNames.GetGame, new { id = game.Id }, dto)
 ---
 ### CreatedAtRoute
 
-**What it is:**
-`Results.CreatedAtRoute()` returns a `201 Created` HTTP response that includes a `Location` header pointing to the URL of the newly created resource.
+**The problem:**
+After a `POST` creates a resource, the client usually needs the URL of the newly created thing — to fetch it, link to it, or redirect the user to it. Asking the client to build that URL itself ties it to the server's routing scheme and breaks the moment the URL pattern changes.
 
-**Why it's used:**
-REST convention says when you create a resource, you should tell the client where to find it. The `Location` header lets the client immediately navigate to the new resource without having to construct the URL themselves.
+**What it does:**
+`Results.CreatedAtRoute()` returns `201 Created` with a `Location` header pointing at the new resource's canonical URL, generated from a named endpoint plus route values. The server owns its URL scheme; the client just follows the `Location`.
 
-**How it fits — `CreateGameEndpoint`:**
+**In code — `CreateGameEndpoint`:**
 ```csharp
 dbContext.Add(game);
 await dbContext.SaveChangesAsync();
@@ -202,10 +199,12 @@ The response will have:
 ---
 ### Problem Details & Standardized Error Responses
 
-**What it is:**
-`AddProblemDetails()` registers ASP.NET Core's built-in support for the [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) standard — a consistent JSON format for HTTP error responses.
+**The problem:**
+By default, error responses are inconsistent — some return empty bodies, some return strings, some return ad-hoc JSON. Each client ends up writing its own special-case parser, and the API's error contract drifts as different endpoints invent different shapes.
 
-Without it, a `404` returns an empty body. With it, the response is a structured object a client can reliably parse:
+**What it does:**
+`AddProblemDetails()` enables ASP.NET Core's built-in support for the [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) standard — a single consistent JSON shape for every HTTP error response. Clients and tooling already understand the format, so error handling becomes uniform across the whole API:
+
 ```json
 {
   "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
@@ -214,10 +213,7 @@ Without it, a `404` returns an empty body. With it, the response is a structured
 }
 ```
 
-**Why it's used:**
-API clients shouldn't have to guess what an error response looks like. Problem Details gives every error a consistent shape — status code, human-readable title, optional detail message. It's a recognized standard, so clients and tooling already understand it.
-
-**How it fits — `Program.cs`:**
+**In code — `Program.cs`:**
 ```csharp
 // Builder phase — register the service
 builder.Services.AddProblemDetails();
@@ -245,13 +241,13 @@ In development you want the full exception — stack trace, message, and all. `U
 ---
 ### Global Error Handler (`IExceptionHandler`)
 
-**What it is:**
-`IExceptionHandler` is an interface you implement to take full control of what happens when an unhandled exception reaches the pipeline. You register the class with `AddExceptionHandler<T>()` and it plugs into `UseExceptionHandler()` automatically.
+**The problem:**
+Unhandled exceptions need to be caught somewhere — not catching them leaks stack traces to clients, and catching them per-endpoint duplicates code and inevitably misses cases. The default `UseExceptionHandler()` + Problem Details combo returns a generic `500` with no log, no trace ID, and no way to attach context for debugging.
 
-**Why it's used:**
-`UseExceptionHandler()` alone with `AddProblemDetails()` returns a generic `500` — no log, no trace ID, no customization. A custom `IExceptionHandler` lets you log the exception, attach a trace ID to the response, and return exactly the Problem Details shape you want.
+**What it does:**
+`IExceptionHandler` is an interface for taking full control of unhandled exceptions in one place. Registered via `AddExceptionHandler<T>()`, it plugs into `UseExceptionHandler()` and runs on every unhandled error — letting you log structured details, attach a trace ID, and shape the Problem Details response exactly the way you want.
 
-**How it fits — `GlobalErrorHandler.cs`:**
+**In code — `GlobalErrorHandler.cs`:**
 ```csharp
 public class GlobalErrorHandler(ILogger<GlobalErrorHandler> logger) : IExceptionHandler
 {
@@ -332,16 +328,13 @@ if (!app.Environment.IsDevelopment())
 ---
 ### OpenAPI
 
-**What it is:**
-OpenAPI (formerly Swagger) is a standard specification for describing HTTP APIs in a machine-readable format (JSON or YAML). It documents every endpoint — its path, method, parameters, request body shape, and response shapes — in a structured way that tools can consume.
+**The problem:**
+Without a machine-readable description of the API, every consumer has to read source code or hand-written docs to know which endpoints exist and what they accept — and those docs go stale the moment a route changes. There's also no way for tooling (UI explorers, typed client generators, contract tests) to plug in.
 
-**Why it's used:**
-Without OpenAPI, API consumers have to read source code or hand-written docs to know what endpoints exist and what they accept. With OpenAPI, you get:
-- A live, auto-generated spec that stays in sync with the code
-- Free UI explorers (Swagger UI, Scalar) that let you call the API from a browser
-- Client code generation — tools can produce typed API clients from the spec
+**What it does:**
+OpenAPI (formerly Swagger) is a standard specification for describing HTTP APIs in JSON or YAML — every endpoint's path, method, parameters, and request/response shapes. Generated automatically from the running app, it stays in sync with the code and unlocks an ecosystem of tools: Swagger UI / Scalar for live exploration, code generators for typed clients, contract validators for CI.
 
-**How it fits:**
+**In code:**
 ASP.NET Core 10 ships built-in OpenAPI support via `Microsoft.AspNetCore.OpenApi`. No third-party library needed.
 
 Two steps to enable it:
@@ -370,13 +363,13 @@ Navigating to `http://localhost:5078/openapi/v1.json` in development returns a J
 ---
 ### Pagination
 
-**What it is:**
-Pagination splits a large list of results into smaller pages, returning a fixed number of records at a time rather than the entire dataset. The client requests a specific page number and page size; the server returns that slice of data along with the total number of pages.
+**The problem:**
+Returning every row in a table in a single response is expensive at every layer — the database scans the whole table, the network ships megabytes, and the client struggles to render thousands of items it'll never look at. As soon as a list grows beyond a few hundred entries, "send everything" stops being viable.
 
-**Why it's used:**
-Returning every row in a table in a single response is expensive — it wastes bandwidth, slows the client down, and puts unnecessary load on the database. Pagination makes large lists manageable at every layer.
+**What it does:**
+**Pagination** splits the list into smaller pages — the client asks for page N at size M, and the server returns just that slice along with the total page count. The database does less work per request, the response is small enough to render fast, and the client stays in control of how much it pulls.
 
-**How it fits — `GetGamesEndpoint`:**
+**In code — `GetGamesEndpoint`:**
 
 ```csharp
 async (GoGameShopContext dbContext, [AsParameters] GetGamesDto request) =>
@@ -428,17 +421,13 @@ GET /games?pageNumber=1&pageSize=10&Name=metal
 ---
 ### AsParameters — Binding Query Strings to Records
 
-**What it is:**
-`[AsParameters]` is a Minimal API attribute that tells ASP.NET Core to bind a complex object from the request instead of treating it as a JSON body. Query string values, route values, and headers are mapped by name to the record's properties.
+**The problem:**
+Endpoints with several query-string parameters (page number, page size, search term, sort, filter) end up with bloated handler signatures listing each one individually. Worse, Minimal API assumes any object parameter is a JSON body, so the obvious refactor — group them into a DTO — silently breaks binding.
 
-**Why it's used:**
-Without `[AsParameters]`, ASP.NET Core assumes any object parameter in a Minimal API handler comes from the JSON request body. For query string parameters you'd normally have to list each one individually:
-```csharp
-async (GoGameShopContext dbContext, int pageNumber = 1, int pageSize = 5) => { ... }
-```
-`[AsParameters]` lets you group them into a record instead, keeping the handler signature clean.
+**What it does:**
+`[AsParameters]` tells ASP.NET Core to bind a complex object from the request's query string, route, and headers instead of from the JSON body. Each property is mapped by name, so a single record can replace half a dozen positional parameters and keep the handler signature clean.
 
-**How it fits:**
+**In code:**
 ```csharp
 public record GetGamesDto(int PageNumber = 1, int PageSize = 5, string? Name = null);
 
@@ -453,13 +442,13 @@ The default values (`PageNumber = 1, PageSize = 5`) are used when the client omi
 ---
 ### Search Filtering
 
-**What it is:**
-Search filtering lets clients narrow results by providing a query parameter. Instead of returning every game, the endpoint returns only games whose names contain the search term.
+**The problem:**
+Pagination shrinks page size, but it doesn't help a user looking for one specific item — they'd still page through the entire catalog to find it. And filtering on the client (download all, then `Array.filter`) defeats the point of pagination in the first place.
 
-**Why it's used:**
-Pagination reduces *how many* records come back at once. Filtering reduces *which* records come back at all. Together they make browsing a large catalog practical.
+**What it does:**
+**Search filtering** pushes the predicate down to the database via a query parameter, so the server returns only matching rows. Combined with pagination, the API limits both *which* records come back and *how many*, making large catalogs browsable in either direction.
 
-**How it fits — `GetGamesEndpoint`:**
+**In code — `GetGamesEndpoint`:**
 
 The filter is optional — if the client omits `Name`, all games are returned:
 ```csharp
@@ -517,13 +506,13 @@ GET /games?pageNumber=2&pageSize=5&Name=gear  → page 2 of results matching "ge
 ---
 ### ThenInclude — Nested Eager Loading
 
-**What it is:**
-`ThenInclude` lets you load a navigation property on an already-included related entity. It chains off a previous `.Include()` call to go one level deeper.
+**The problem:**
+`.Include()` only loads one level deep. For relationships on relationships — a basket has items, each item has a game — the second hop is silently `null` unless you ask for it explicitly. Accessing it then either throws or quietly drops data from the response.
 
-**Why it's used:**
-`.Include()` can only go one level deep. If you need to load a relationship on a relationship (e.g. basket items *and* each item's game), you chain `.ThenInclude()`.
+**What it does:**
+`ThenInclude()` chains off a previous `.Include()` call to load a navigation property on the already-included entity. The whole graph (`Basket → Items → Game`) loads in one query, so endpoints that traverse two levels of relationships still take a single round trip.
 
-**How it fits — `GetBasketEndpoints`:**
+**In code — `GetBasketEndpoints`:**
 ```csharp
 dbContext.Baskets
     .Include(basket => basket.Items)         // load BasketItems for the basket
@@ -547,13 +536,13 @@ public record BasketDto(Guid CustomerId, IEnumerable<BasketItemDto> Items)
 ---
 ### [FromForm] — Binding Form Data
 
-**What it is:**
-`[FromForm]` is a parameter attribute in ASP.NET Core that tells the framework to bind the parameter from a `multipart/form-data` or `application/x-www-form-urlencoded` request body — not from JSON.
+**The problem:**
+JSON cannot carry binary file data, so any endpoint that needs an upload alongside regular fields has to accept `multipart/form-data`. But Minimal API's default assumption is "complex parameter = JSON body" — without telling the framework otherwise, the endpoint sees `null` fields and confused binding errors.
 
-**Why it's used:**
-By default, Minimal API assumes any object parameter comes from the JSON body. When an endpoint needs to accept a file upload alongside regular fields, the request must be `multipart/form-data` (because JSON cannot carry binary file data). `[FromForm]` switches the binding source so the DTO is populated from the form fields instead.
+**What it does:**
+`[FromForm]` switches the binding source for that parameter from JSON body to form body (`multipart/form-data` or `application/x-www-form-urlencoded`). Scalar properties bind from named form fields and `IFormFile` properties bind from the file parts.
 
-**How it fits:**
+**In code:**
 ```csharp
 app.MapPost("/", async ([FromForm] CreateGameDto gameDto, FileUploader fileUploader) =>
 {
@@ -590,13 +579,13 @@ The constructor parameters bind from named form fields. `ImageFile` is a mutable
 ---
 ### File Uploads — IFormFile
 
-**What it is:**
-`IFormFile` is ASP.NET Core's type for a file submitted in a `multipart/form-data` HTTP request. It represents one uploaded file, with properties for the file name, content type, size, and a stream to read its bytes.
+**The problem:**
+File uploads arrive as binary data in a multipart HTTP body, mixed with text fields, boundary markers, and per-part headers. Parsing that by hand is fiddly and easy to get wrong — and the upload itself needs validation (size, type, safe naming) before the file ever touches disk.
 
-**Why it's used:**
-File uploads arrive as binary data in a multipart form body — not JSON. `IFormFile` wraps the raw stream with typed metadata so you can validate and save the file without manually parsing the HTTP body.
+**What it does:**
+`IFormFile` is ASP.NET Core's typed wrapper around an uploaded file part. It exposes the file name, content type, length, and a stream — letting endpoints validate the upload (size cap, allowed extensions) and stream it to disk without ever re-parsing the multipart body.
 
-**How it fits — `FileUploader.UploadFileAsync`:**
+**In code — `FileUploader.UploadFileAsync`:**
 
 ```csharp
 public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string folder)

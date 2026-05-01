@@ -2,11 +2,11 @@
 
 ### Introduction
 
-**What it is:**
-Postman is a desktop client for sending HTTP requests, organizing them into reusable collections, and exercising APIs end-to-end without writing code. It complements `gogameshop.http` and curl by adding persistent storage, sharable folders, environments, and a GUI for tasks like OAuth 2.0 token retrieval that would otherwise require multiple manual steps.
+**The problem:**
+Exercising a non-trivial API by hand — repeated multipart uploads, role-protected endpoints, OAuth 2.0 token retrieval — gets painful fast with raw curl or `.http` files. Tokens expire, bodies need re-typing, and there's no shared, foldered place to keep request scenarios across machines.
 
-**Why it fits this project:**
-The API has many endpoints (`/games`, `/baskets/{userId}`, `/genres`, `/ratings`) and several behaviors that depend on request shape and identity — multipart form uploads, role-protected endpoints, resource-based authorization on baskets. A persistent collection makes it trivial to re-run the same scenarios after every code change without retyping bodies, headers, and tokens.
+**What it does:**
+Postman is a desktop client for sending HTTP requests, organizing them into reusable collections, and exercising APIs end-to-end without writing code. It adds persistent storage, foldered collections, environment variable swapping, and a GUI for tasks like OAuth 2.0 token retrieval that would otherwise require multiple manual steps each time.
 
 **Three components used in this project:**
 - **Collections** — saved request definitions, grouped into folders by feature (`games/`, `baskets/`, …)
@@ -18,8 +18,11 @@ The `postman/` folder in the repo holds the local workspace files. `.postman/res
 ---
 ### Workspaces and Collections
 
+**The problem:**
+A single Postman install can hold dozens of unrelated APIs across personal projects, work, and clients. Without a hierarchy, requests pile into one flat list and nothing is shareable as a unit.
+
 **What a workspace is:**
-A **workspace** is a top-level container in Postman — usually one per project or team. It owns the collections, environments, mocks, and other resources that belong together. The cloud workspace ID is what `.postman/resources.yaml` records:
+A **workspace** is the top-level container — usually one per project or team. It owns the collections, environments, mocks, and other resources that belong together. The cloud workspace ID is what `.postman/resources.yaml` records:
 
 ```yaml
 workspace:
@@ -61,8 +64,11 @@ Each saved request, folder, and environment lives as a YAML/JSON file under `pos
 ---
 ### Environments and Variables
 
+**The problem:**
+The same collection needs to point at `http://localhost:5078` during development, a staging URL on a CI runner, and a production URL during smoke tests. Hardcoding the host in every request means duplicating the collection per environment and updating each one in lockstep.
+
 **What variables are:**
-Postman variables are placeholders written `{{name}}` that get substituted at request time. Instead of hardcoding `http://localhost:5078/games` in 20 requests, you write `{{baseUrl}}/games` once and define `baseUrl` in an environment.
+Postman variables are placeholders written `{{name}}` that get substituted at request time. Instead of hardcoding `http://localhost:5078/games` in 20 requests, you write `{{baseUrl}}/games` once and define `baseUrl` in an environment — switching environments rebinds every request at once.
 
 **Environment scope:**
 An **environment** is a named group of variables. Switching the active environment (top-right dropdown) changes every request that references its variables. Typical setup for this project:
@@ -92,8 +98,11 @@ Always store passwords and tokens as **current value only** — initial values g
 ---
 ### OAuth 2.0 with Keycloak
 
-**Why this is needed:**
-The `/baskets/*` endpoints require a valid JWT — the API rejects unauthenticated calls with a 401. Postman has to obtain a token from Keycloak and attach it to every basket request. Doing this manually (open browser → log in → copy token from URL → paste into Postman) is painful; Postman's OAuth 2.0 helper automates it.
+**The problem:**
+Protected endpoints require a valid JWT — unauthenticated calls get 401. Obtaining one by hand (open browser → log in → copy token from URL → paste into request header → repeat every 5 minutes when it expires) is tedious and error-prone, and copying tokens through clipboards risks leaking them.
+
+**What it does:**
+Postman's built-in OAuth 2.0 helper automates the entire token dance: it opens the browser to the authorization server, captures the redirect, exchanges the code, and stores the token internally — ready to be attached to any request in the collection.
 
 **Flow used: Authorization Code with PKCE**
 This is the OIDC flow for browser/desktop clients. It works like this:
@@ -139,6 +148,9 @@ Postman stores the token internally per-collection. To make it available to scri
 
 ---
 ### Testing Protected Endpoints
+
+**The problem:**
+A protected API will reject most calls — but the rejection might mean *no token*, *wrong user*, or *wrong role*, and each requires a different fix. Without a deliberate test plan, it's easy to miss a regression where an endpoint silently becomes more (or less) permissive than intended.
 
 **What protection looks like in this project:**
 The API's endpoints fall into three categories:

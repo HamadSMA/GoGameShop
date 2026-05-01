@@ -2,13 +2,13 @@
 
 ### Extension Methods
 
-**What it is:**
-An extension method is a static method that "adds" new methods to an existing type without modifying its source code. You define it with the `this` keyword in the parameter list.
+**The problem:**
+You often want to add behavior to a type you don't own (`WebApplication`, `string`, `IEnumerable<T>`) — but you can't edit its source. Wrapping it in a helper class works, but the call site reads awkwardly: `Helpers.DoThing(target)` instead of `target.DoThing()`.
 
-**Why it's used:**
-They allow clean, fluent API design. Instead of calling `GamesEndpoints.MapGames(app)`, you can call `app.MapGames()` — as if `MapGames` was always a method on `WebApplication`.
+**What it does:**
+An **extension method** is a static method that *appears* to live on the target type. The `this` keyword on the first parameter tells the compiler to allow `target.Method()` syntax — same dispatch as a real method, no inheritance or modification of the original type required.
 
-**How it fits:**
+**In code:**
 ```csharp
 // Defined as:
 public static void MapGames(this IEndpointRouteBuilder app) { ... }
@@ -25,13 +25,13 @@ This pattern is used everywhere:
 ---
 ### Dependency Injection
 
-**What it is:**
-Dependency Injection (DI) is a design pattern where objects receive their dependencies (things they need) from the outside rather than creating them themselves. In ASP.NET Core, a built-in DI container manages this automatically.
+**The problem:**
+When a class creates its own dependencies (`new DbContext(...)`, `new HttpClient()`), it owns their lifecycle, locks itself to specific implementations, and becomes nearly impossible to swap out for tests. The codebase ends up with hidden coupling and duplicated `using` blocks for resource cleanup.
 
-**Why it's used:**
-Without DI, every endpoint would need to manually create a `DbContext`, manage its lifecycle, and dispose of it. DI handles all of that — you just declare what you need, and the framework provides it.
+**What it does:**
+**Dependency Injection (DI)** flips construction: objects declare what they need as constructor or method parameters, and a container provides them at runtime. ASP.NET Core's built-in container manages instance lifetimes (Singleton / Scoped / Transient) and disposes of disposables automatically — you just declare the dependency.
 
-**How it fits:**
+**In code:**
 Services are registered in `Program.cs`:
 ```csharp
 builder.Services.AddSqlite<GoGameShopContext>(connectionString);
@@ -49,13 +49,13 @@ ASP.NET Core sees the `GoGameShopContext` parameter and automatically creates an
 ---
 ### C# Records
 
-**What it is:**
-A `record` is a special C# type designed for immutable data objects. It auto-generates equality comparison, `ToString()`, and a constructor based on the properties you declare.
+**The problem:**
+Most DTOs are pure data — properties, value equality, a `ToString()` for debugging, and nothing else. Writing them as classes means dozens of lines of boilerplate (constructor, properties, `Equals`, `GetHashCode`, `ToString`) per type, and the noise hides what's actually distinctive about each one.
 
-**Why it's used:**
-DTOs are perfect candidates for records because they carry data without behavior — you create them, read from them, and throw them away. The concise syntax saves boilerplate.
+**What it does:**
+A `record` is a C# type designed for immutable data. The compiler auto-generates the constructor, value-based equality, `GetHashCode`, and `ToString` from the property list — turning a 30-line class into a one-liner that still has the same behavior.
 
-**How it fits:**
+**In code:**
 ```csharp
 // Record - very concise, immutable
 public record GameSummaryDto(Guid Id, string Name, string Genre, string Rating, decimal Price, DateOnly ReleaseDate);
@@ -381,15 +381,13 @@ Reserve exceptions for genuinely unexpected failures — things that shouldn't h
 ---
 ### Fail-Fast Validation
 
-**What it is:**
-Fail-fast validation means checking preconditions **at the top of a method** and returning early if they aren't met — before doing any real work. Each guard clause checks one condition, sets an error, and returns immediately.
+**The problem:**
+Wrapping the entire body of a method in nested `if` blocks pushes the real work two or three indents deep, and intersperses the happy path with error handling. It also wastes work — if the input is invalid, you've already opened a file or hit the database before noticing.
 
-**Why it's used:**
-- Keeps the "happy path" — the code that actually does the work — unindented and easy to read
-- Avoids wasting resources (disk I/O, database calls) on invalid input
-- Makes each failure reason explicit and self-contained
+**What it does:**
+**Fail-fast validation** (also called *guard clauses*) checks preconditions at the top of the method and returns immediately on the first failure. The happy path stays at the outermost indent and runs only after every check has passed — and no expensive work happens for bad input.
 
-**How it fits:**
+**In code:**
 In `FileUploader.UploadFileAsync`, three guards run before any file is written to disk:
 
 ```csharp
@@ -443,13 +441,13 @@ The approach in `FileUploader` is fail-fast + result object (not exceptions), be
 ---
 ### Vertical Slice Architecture
 
-**What it is:**
-Vertical slicing organizes code by **feature** rather than by **technical layer**. Instead of folders named `Controllers/`, `Services/`, `Repositories/`, you have folders named by what they do.
+**The problem:**
+Layered architectures (`Controllers/`, `Services/`, `Repositories/`) scatter the code for one feature across many folders. Adding "Create Game" means editing four files in four different layers, and a teammate who wants to understand the feature has to chase references across all of them.
 
-**Why it's used:**
-When you work on a feature (e.g., "Create Game"), all the relevant code — the endpoint, DTO, validation — is in one folder. You don't have to jump between multiple layers across the project.
+**What it does:**
+**Vertical slicing** organizes code by **feature** instead of by technical layer. Each folder owns everything one feature needs — endpoint, DTOs, validation, handlers — so adding a feature is adding a folder, and reading a feature is reading one folder.
 
-**How it fits:**
+**In code:**
 ```
 Features/
 ├── Games/
@@ -473,11 +471,11 @@ Each folder is a self-contained "slice" of the application. Adding a new feature
 ---
 ### LINQ (Language Integrated Query)
 
-**What it is:**
-LINQ is a set of C# methods for filtering, transforming, and aggregating collections — arrays, lists, database results, anything that implements `IEnumerable<T>` or `IQueryable<T>`.
+**The problem:**
+Filtering, projecting, sorting, and aggregating collections with bare `foreach` loops produces a lot of imperative bookkeeping for a simple intent. The loop body buries *what* you want under *how* to compute it, and there's no way for an ORM to translate a `foreach` into SQL.
 
-**Why it's used:**
-Instead of writing `foreach` loops to search or reshape data, LINQ lets you express *what* you want in a readable, chainable style. EF Core also translates LINQ calls directly into SQL.
+**What it does:**
+**LINQ** is a set of C# methods (`Where`, `Select`, `OrderBy`, `Sum`, …) for working with collections in a declarative, chainable style. The same methods work over in-memory collections (`IEnumerable<T>`) and over database queries (`IQueryable<T>`) — EF Core translates the second into SQL automatically.
 
 **Methods:**
 
@@ -514,7 +512,7 @@ Most LINQ methods are *deferred* — the query only runs when you iterate (e.g. 
 ### Common C# Built-in Methods
 
 **What they are:**
-The .NET standard library ships with utility methods on strings, collections, arrays, and more. These are the ones you'll reach for constantly.
+The .NET standard library ships with utility methods on strings, collections, arrays, and more. These are the ones you'll reach for constantly — keep them visible so you don't reinvent them or import a library for what's already in the BCL.
 
 ---
 

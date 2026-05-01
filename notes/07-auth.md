@@ -2,8 +2,11 @@
 
 ### Authentication vs Authorization
 
+**The problem:**
+"Logged in" and "allowed to do this" sound like the same thing in casual conversation but they're not, and conflating them leads to muddled code — checking a role inside login logic, or skipping permission checks because the caller "is signed in." The framework needs to keep them distinct so each can be reasoned about independently.
+
 **What they are:**
-Two separate concepts that are often confused:
+Two separate concepts:
 
 - **Authentication** — *Who are you?* Validates the caller's identity by checking a token or credential.
 - **Authorization** — *Are you allowed?* Checks whether the identified caller has permission to do what they're asking.
@@ -13,16 +16,19 @@ In ASP.NET Core, these are two separate middleware registrations and two separat
 ---
 ### JWT Bearer Authentication
 
-**What it is:**
+**The problem:**
+Stateful sessions (a session ID stored in a server-side store) don't scale well across multiple servers or stateless deployments — every request needs a database lookup, and signing the user out everywhere is hard. Some scheme is needed where the server can identify the caller without keeping per-user state.
+
+**What it does:**
 JWT (JSON Web Token) is a compact, self-contained token format. A client receives a JWT from an identity provider after logging in and attaches it to subsequent requests via the `Authorization` header:
 
 ```
 Authorization: Bearer eyJhbGci...
 ```
 
-The server validates the token's signature and reads the claims embedded inside it — no database lookup needed.
+The server validates the token's signature and reads the claims embedded inside it — no database lookup needed. Identity travels with the request.
 
-**How it fits — `Program.cs`:**
+**In code — `Program.cs`:**
 ```csharp
 builder
     .Services.AddAuthentication()
@@ -46,13 +52,13 @@ builder
 ---
 ### Fallback Policy — Secure by Default
 
-**What it is:**
-`AddFallbackPolicy` registers a policy that automatically applies to every endpoint that has no explicit authorization configured. It flips the default: instead of endpoints being public unless locked down, they are locked down unless explicitly opened up.
+**The problem:**
+Without a fallback, every new endpoint is public unless someone remembers to add `RequireAuthorization`. Forgetting that one call silently exposes data — and the failure mode is invisible in code review because the *missing* call is what causes it.
 
-**Why it matters:**
-With `AddPolicy` alone, forgetting `RequireAuthorization` on a new endpoint silently leaves it public. With a fallback, forgetting means the fallback kicks in — a safer default that prevents accidental exposure.
+**What it does:**
+`AddFallbackPolicy` registers a policy that automatically applies to every endpoint that has no explicit authorization configured. It flips the default: instead of endpoints being public unless locked down, they are locked down unless explicitly opened up. Forgetting an auth call now means the fallback kicks in — a safer failure mode.
 
-**How it fits — `AuthorizationExtensions.cs`:**
+**In code — `AuthorizationExtensions.cs`:**
 ```csharp
 builder
     .Services.AddAuthorizationBuilder()
@@ -80,10 +86,13 @@ The basket endpoints have no auth call on them — they are automatically protec
 ---
 ### AllowAnonymous — Explicit Opt-Out
 
-**What it is:**
-`.AllowAnonymous()` exempts an endpoint from all authorization checks, including the fallback policy. When a fallback policy is active, this is the only way to make an endpoint publicly accessible.
+**The problem:**
+A fallback policy locks down everything, but some endpoints genuinely need to be public — a game catalog the homepage reads before login, a health check, a static asset. Without an opt-out, the fallback would block those too.
 
-**How it fits:**
+**What it does:**
+`.AllowAnonymous()` exempts an endpoint from all authorization checks, including the fallback policy. It makes the public intent explicit at the call site, so there's no ambiguity about whether an endpoint is open by accident or by design.
+
+**In code:**
 ```csharp
 app.MapGet("/games", ...).AllowAnonymous();
 app.MapGet("/genres", ...).AllowAnonymous();
@@ -102,13 +111,13 @@ Without `.AllowAnonymous()`, the fallback would block unauthenticated clients fr
 ---
 ### UseAuthorization Middleware Order
 
-**What it is:**
-By default, ASP.NET Core adds the authorization middleware automatically. But when you need to control where it sits in the pipeline — specifically after `UseStaticFiles()` — you call `app.UseAuthorization()` explicitly.
+**The problem:**
+Middleware runs in registration order, and a fallback policy is an aggressive default. If authorization runs before static-file serving, every image and asset request goes through the auth check first — and anonymous users get `401` for files that were meant to be public.
 
-**Why order matters here:**
-Static files (`wwwroot/`) are served by `UseStaticFiles()`. If `UseAuthorization()` runs before it, the authorization middleware would intercept requests for images and other assets and return `401` to anonymous users — even when those files are meant to be public.
+**What it does:**
+Calling `app.UseAuthorization()` explicitly (instead of relying on the framework's auto-injection) lets you place it *after* `UseStaticFiles()`. Static-file requests then short-circuit before authorization runs, so assets load for everyone regardless of auth state.
 
-**How it fits — `Program.cs`:**
+**In code — `Program.cs`:**
 ```csharp
 app.UseStaticFiles();       // serve wwwroot/ files first, before auth runs
 app.UseAuthorization();     // then enforce auth on API endpoints
@@ -118,18 +127,16 @@ app.MapGetGenres();
 // ...
 ```
 
-Placing `UseAuthorization()` after `UseStaticFiles()` means static file requests short-circuit before authorization is checked, so images load for everyone regardless of auth state.
-
 ---
 ### Roles and Policies — Static Constant Classes
 
-**What they are:**
-`Roles` and `Policies` are static classes that hold string constants — the names of roles and policies used throughout the project.
+**The problem:**
+Policy and role names get referenced in at least two places — where they're registered, and on every endpoint that applies them. Repeating the bare string `"AdminAccess"` in many files means a typo doesn't fail to compile; it fails silently at runtime when an endpoint quietly stops being protected.
 
-**Why it's used:**
-Policy and role names are referenced in at least two places: where they're defined (in `Program.cs`) and where they're applied (on each endpoint). Hardcoding the same string in multiple places means a typo causes a silent runtime failure instead of a compile-time error. A constant means you change it once and the compiler catches any missed references.
+**What it does:**
+`Roles` and `Policies` are static classes that hold the names as `const string` fields. Every reference goes through the constant, so a rename propagates everywhere and the compiler catches any stale string. `nameof(...)` keeps the constant name and its value in sync automatically.
 
-**How it fits:**
+**In code:**
 ```csharp
 public static class Policies
 {
@@ -150,10 +157,11 @@ public static class Roles
 ---
 ### Resource-Based Authorization
 
-**What it is:**
-Policy-based authorization can only inspect the JWT — it has no access to data from the database. Resource-based authorization loads the specific object being acted on and passes it to a handler so the decision can be made against that data.
+**The problem:**
+Some authorization rules can't be answered from the token alone. "Can this user edit *this specific basket*?" depends on who owns that basket — information that lives in the database, not the JWT. Policy-based auth can only inspect the token, so it can't express owner-based rules.
 
-The built-in `AuthorizationHandler<TRequirement>` takes one generic. Adding a second one — `AuthorizationHandler<TRequirement, TResource>` — tells the framework this handler also expects a concrete resource object at runtime:
+**What it does:**
+Resource-based authorization loads the specific object being acted on and passes it to a handler so the decision can be made against that data. The built-in `AuthorizationHandler<TRequirement>` takes one generic. Adding a second one — `AuthorizationHandler<TRequirement, TResource>` — tells the framework this handler also expects a concrete resource object at runtime:
 
 ```csharp
 public class BasketAuthorizationHandler
@@ -247,10 +255,13 @@ builder.Services.AddSingleton<IAuthorizationHandler, BasketAuthorizationHandler>
 ---
 ### Applying Policies to Endpoints
 
-**What it is:**
+**The problem:**
+A registered policy is just a definition — it doesn't enforce anything until something attaches it to a route. The fallback covers the default case, but anything stricter (like admin-only endpoints) needs an explicit hookup at the call site.
+
+**What it does:**
 `RequireAuthorization(policyName)` chains onto a Minimal API endpoint registration and tells the framework to enforce a named policy before the handler runs. If the request fails the policy, the framework short-circuits with `401 Unauthorized` (not authenticated) or `403 Forbidden` (authenticated but not authorized).
 
-**How it fits:**
+**In code:**
 ```csharp
 // Any logged-in user with a valid API token
 app.MapGet("/baskets/{userId}", ...).RequireAuthorization(Policies.UserAccess);
