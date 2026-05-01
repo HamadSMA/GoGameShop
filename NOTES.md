@@ -19,3 +19,4 @@
 | Docker | [notes/08-docker.md](notes/08-docker.md) |
 | Keycloak | [notes/09-keycloak.md](notes/09-keycloak.md) |
 | Postman | [notes/10-postman.md](notes/10-postman.md) |
+| OAuth 2.0 and OpenID Connect | [notes/11-oauth-oidc.md](notes/11-oauth-oidc.md) |
