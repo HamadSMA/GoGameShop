@@ -25,7 +25,7 @@ Every OAuth/OIDC interaction has exactly four roles. Get these straight and the 
 | **Authorization Server** | Keycloak | Authenticates the user, issues tokens |
 | **Resource Server** | GoGameShop API | Holds the data, validates tokens |
 
-The whole protocol is choreography between these four. Postman never talks to the user's password. The API never talks to Keycloak's user database. Each role only knows what it strictly needs to.
+The whole protocol is choreography between these four. The client never sees the user's password. The resource server never talks to the authorization server's user database. Each role only knows what it strictly needs to.
 
 ---
 ### The grant types (flows)
@@ -46,19 +46,19 @@ OAuth 2.0 defines several **grant types** — different choreographies for diffe
 
 #### Authorization Code Flow with PKCE
 
-**Who it's for:** Public clients — single-page apps, mobile apps, desktop apps, **Postman**. Anything where you can't ship a client secret because the code is on the user's machine and can be inspected.
+**Who it's for:** Public clients — single-page apps, mobile apps, desktop apps, API testing tools like Postman. Anything where you can't ship a client secret because the code is on the user's machine and can be inspected.
 
 **The problem PKCE solves:** Without a client secret, the plain Authorization Code flow falls apart. If anyone can intercept the code from the redirect, anyone can exchange it for a token. PKCE plugs the hole using a one-time secret generated per request.
 
 **The choreography (with PKCE additions in bold):**
-1. **Postman generates a random `code_verifier` (a long random string) and a `code_challenge` (the SHA-256 hash of the verifier).**
-2. Postman opens the browser to Keycloak's `/auth` endpoint with the `code_challenge` attached.
+1. **The client generates a random `code_verifier` (a long random string) and a `code_challenge` (the SHA-256 hash of the verifier).**
+2. The client opens the browser to the authorization server's `/auth` endpoint with the `code_challenge` attached.
 3. User logs in.
-4. Keycloak redirects back with a code; **Keycloak also stored the `code_challenge` against this code internally.**
-5. Postman exchanges the code at `/token` — **but this time it also sends the original `code_verifier`.**
-6. Keycloak hashes the verifier, checks it matches the challenge it stored, then issues the token.
+4. The authorization server redirects back with a code; **it also stored the `code_challenge` against that code internally.**
+5. The client exchanges the code at `/token` — **but this time it also sends the original `code_verifier`.**
+6. The authorization server hashes the verifier, checks it matches the challenge it stored, then issues the token.
 
-An attacker who intercepts the code can't redeem it without the verifier, which never left Postman.
+An attacker who intercepts the code can't redeem it without the verifier, which never left the client.
 
 **This is the flow used in this project** — Postman's OAuth 2.0 helper is configured for "Authorization Code (with PKCE)" against the `gogameshop-postman` client.
 
@@ -83,7 +83,7 @@ An attacker who intercepts the code can't redeem it without the verifier, which 
 ---
 ### PKCE methods
 
-When Postman generates the code challenge, it picks a hashing method and tells Keycloak which one via the `code_challenge_method` parameter:
+When the client generates the code challenge, it picks a hashing method and tells the authorization server which one via the `code_challenge_method` parameter:
 
 | Method | What it does | Use it? |
 |---|---|---|
@@ -164,7 +164,7 @@ Every OIDC server exposes the same well-known set of endpoints. Keycloak puts th
 
 **URL:** `http://localhost:8080/realms/gogameshop/protocol/openid-connect/auth`
 
-**Used for:** The browser-facing step. Postman opens this URL in a browser; Keycloak shows the login page; after login, Keycloak redirects back to the client.
+**Used for:** The browser-facing step. The client opens this URL in a browser; Keycloak shows the login page; after login, Keycloak redirects back to the client.
 
 **Request parameters (sent as query string):**
 
@@ -224,7 +224,7 @@ That's why the redirect URI **must be `https`** (Keycloak rejects `http` for non
 
 A short-lived (5 minutes by default in Keycloak dev mode) signed JWT. The client sends it on every API request as `Authorization: Bearer <token>`. The API validates the signature against Keycloak's public keys (fetched from the discovery doc), checks expiry and audience, and trusts the claims inside.
 
-The access token is **for the API, not the client**. Postman shouldn't try to read claims out of it — those claims are meant for the resource server.
+The access token is **for the resource server, not the client**. The client shouldn't try to read claims out of it — those claims are meant for whoever validates the token.
 
 #### Refresh token
 
@@ -237,7 +237,7 @@ refresh_token=eyJhbGciOi...
 client_id=gogameshop-postman
 ```
 
-Postman handles refresh automatically when configured: when an access token is about to expire, it calls `/token` with the refresh token and replaces the cached access token transparently.
+Most clients handle refresh automatically when configured: when an access token is about to expire, the client calls `/token` with the refresh token and replaces the cached access token transparently — without ever bothering the user.
 
 #### ID token (OIDC only)
 
