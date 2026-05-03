@@ -103,22 +103,11 @@ MigrationBackup/
 case-study.md
 CLAUDE.md
 
-## Game cover images
+## Game cover images (uploaded at runtime, not source code)
 Covers/
-wwwroot/
+GameImages/
 
-## Postman
-postman/
-.postman/
-
-## Editor / IDE
-.vscode/
-
-## .NET launch profiles
-launchSettings.json
-
-## App settings (use dotnet user-secrets for real secrets)
-appsettings*.json
+## App settings example
 !appsettings.Example.json
 
 ## macOS

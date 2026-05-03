@@ -2,6 +2,8 @@ using GoGameShop.Api.Features.Baskets;
 using GoGameShop.Api.Features.Baskets.Authorization;
 using GoGameShop.Api.Shared.Authorization;
 using GoGameShop.Api.Shared.FileUpload;
+using GoGameShop.Api.Shared.Schemes;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
 
@@ -35,12 +37,45 @@ builder.Services.AddSingleton<FileUploader>();
 // Authentication and Authorization service add its middleware automatically, no need to add it to the pipeline unless it creates conflict, then it must be added manually in the pipeline
 
 builder
-    .Services.AddAuthentication()
+    .Services.AddAuthentication(Schemes.Keycloak)
     .AddJwtBearer(options =>
     {
         options.MapInboundClaims = false;
-        options.TokenValidationParameters.RoleClaimType = "role";
-    });
+        options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+    })
+    .AddJwtBearer(
+        Schemes.Keycloak,
+        options =>
+        {
+            options.Authority = "http://localhost:8080/realms/gogameshop";
+            options.Audience = "gogameshop-api";
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+            options.RequireHttpsMetadata = false;
+            options.Events = new JwtBearerEvents()
+            {
+                OnTokenValidated = context =>
+                {
+                    var claims = context.Principal?.Claims;
+                    if (claims is null)
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    var logger = context.HttpContext.RequestServices
+                        .GetRequiredService<ILogger<Program>>();
+
+                    foreach (var claim in claims)
+                    {
+                        logger.LogInformation("Claim: {ClaimType} = {ClaimValue}", claim.Type, claim.Value);
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
+        }
+    );
+
 builder.Services.AddSingleton<IAuthorizationHandler, BasketAuthorizationHandler>();
 
 var app = builder.Build();
