@@ -21,10 +21,12 @@ public class BasketAuthorizationHandler
         {
             return Task.CompletedTask;
         }
+
         if (Guid.Parse(currentUserId) == resource.Id || context.User.IsInRole(Roles.Admin) == true)
         {
             context.Succeed(requirement);
         }
+
         return Task.CompletedTask;
     }
 }
@@ -34,4 +36,6 @@ public class BasketAuthorizationHandler
 
 // Authorization requirement is a collection of data parameters
 // that a policy can use to evaluate the current user principle
-public class OwnerOrAdminRequirement : IAuthorizationRequirement { }
+public class OwnerOrAdminRequirement : IAuthorizationRequirement
+{
+}

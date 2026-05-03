@@ -102,6 +102,7 @@ MigrationBackup/
 ## Personal notes / case study (not for version control)
 case-study.md
 CLAUDE.md
+.claude/
 
 ## Game cover images (uploaded at runtime, not source code)
 Covers/
