@@ -1,4 +1,4 @@
-namespace GoGameShop.Api.Shared.Schemes;
+namespace GoGameShop.Api.Shared.Authorization.Scemes;
 
 public static class Schemes
 {

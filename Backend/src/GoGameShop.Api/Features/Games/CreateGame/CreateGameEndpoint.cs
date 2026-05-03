@@ -3,6 +3,7 @@ using System.Security.Claims;
 using GoGameShop.Api.Shared.Authorization;
 using GoGameShop.Api.Shared.FileUpload;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace GoGameShop.Api.Features.Games.CreateGame;
 
@@ -28,7 +29,9 @@ public static class CreateGameEndpoint
                         return Results.Unauthorized();
                     }
 
-                    var currentUserId = user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+                    var currentUserId =
+                        user?.FindFirstValue(JwtRegisteredClaimNames.Email)
+                        ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
                     if (String.IsNullOrEmpty(currentUserId))
                     {

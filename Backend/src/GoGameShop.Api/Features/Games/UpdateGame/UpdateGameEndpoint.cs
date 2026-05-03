@@ -21,7 +21,9 @@ public static class UpdateGameEndpoint
                     ClaimsPrincipal user
                 ) =>
                 {
-                    var currentUserId = user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+                    var currentUserId =
+                        user?.FindFirstValue(JwtRegisteredClaimNames.Email)
+                        ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
                     if (String.IsNullOrEmpty(currentUserId))
                     {

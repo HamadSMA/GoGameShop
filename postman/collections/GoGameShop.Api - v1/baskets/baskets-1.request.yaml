@@ -1,0 +1,6 @@
+$kind: http-request
+name: baskets
+url: ""
+method: PUT
+examples: .resources/baskets.resources/examples
+order: 1346339633223039

@@ -1,0 +1,5 @@
+$kind: http-request
+name: baskets
+url: ""
+method: GET
+order: 1777799860389
