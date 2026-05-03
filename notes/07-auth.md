@@ -253,6 +253,124 @@ builder.Services.AddSingleton<IAuthorizationHandler, BasketAuthorizationHandler>
 `Singleton` is appropriate here because the handler holds no request-specific state — it reads from the context and resource passed in by the framework each time.
 
 ---
+### Named Authentication Schemes
+
+**The problem:**
+`AddJwtBearer()` with no arguments registers a single default scheme. That works when there's only one identity provider. But once you integrate a real provider like Keycloak, you need to configure its specific settings (issuer URL, audience, etc.) separately from the generic defaults — and you need a way to tell the framework which scheme to use as the default.
+
+**What it does:**
+A named scheme lets you register multiple JWT bearer configurations under different names. You then set one as the default so the framework knows which to use when no scheme is explicitly specified.
+
+**In code — `Program.cs`:**
+```csharp
+builder
+    .Services.AddAuthentication(Schemes.Keycloak)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+    })
+    .AddJwtBearer(
+        Schemes.Keycloak,
+        options =>
+        {
+            options.Authority = "http://localhost:8080/realms/gogameshop";
+            options.Audience = "gogameshop-api";
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+            options.RequireHttpsMetadata = false;
+        }
+    );
+```
+
+**Breaking it down:**
+
+`AddAuthentication(Schemes.Keycloak)` — sets the default authentication scheme to `"Keycloak"`. Every request will use this scheme unless an endpoint explicitly specifies another one.
+
+`AddJwtBearer(options => ...)` — registers the unnamed/default JWT Bearer scheme. This one has no Authority or Audience — it's a generic fallback.
+
+`AddJwtBearer(Schemes.Keycloak, options => ...)` — registers a second JWT Bearer scheme named `"Keycloak"` with provider-specific settings.
+
+`Authority` — the URL of the identity provider's realm. The middleware fetches the OpenID Connect discovery document from `{Authority}/.well-known/openid-configuration` to learn the signing keys, issuer, and supported endpoints — no manual key configuration needed.
+
+`Audience` — the expected `aud` claim in the token. The middleware rejects tokens that aren't intended for this API. In Keycloak, this matches the client ID.
+
+`RequireHttpsMetadata = false` — allows fetching the discovery document over HTTP instead of HTTPS. Required for local development with Keycloak on `http://localhost:8080`. Never disable this in production.
+
+The scheme name is a `const string` in a static class, following the same pattern as `Roles` and `Policies`:
+
+```csharp
+public static class Schemes
+{
+    public const string Keycloak = nameof(Keycloak);
+}
+```
+
+---
+### Custom ClaimTypes Constant
+
+**The problem:**
+The JWT `role` claim name is referenced in multiple places — `RoleClaimType` configuration, `IsInRole()` checks, etc. Hardcoding `"role"` everywhere is the same magic-string problem that `Roles` and `Policies` classes solved. Additionally, `System.Security.Claims.ClaimTypes` already exists in .NET and uses long URL-style claim names that don't match the short names in JWTs from external providers.
+
+**What it does:**
+A project-specific `ClaimTypes` class with `const string` fields for the short JWT claim names used by the identity provider:
+
+```csharp
+namespace GoGameShop.Api.Shared.Authorization;
+
+public static class ClaimTypes
+{
+    public const string Role = "role";
+}
+```
+
+This shadows the framework's `System.Security.Claims.ClaimTypes` — which is intentional. The project uses short claim names (`role`, `sub`, `scope`) from the JWT spec, not the long Microsoft-style URLs.
+
+---
+### JwtBearerEvents — Debugging Token Claims
+
+**The problem:**
+When authorization fails and you don't know why, you need to see exactly what claims the token contains. The decoded JWT might look correct in a tool like jwt.io, but the middleware's claim mapping can rename or drop claims silently. You need to see the claims *after* the middleware processes them.
+
+**What it does:**
+`JwtBearerEvents` exposes lifecycle hooks that run during token processing. `OnTokenValidated` fires after the token is successfully validated and claims are parsed — the perfect place to log what the framework actually sees.
+
+**In code — `Program.cs`:**
+```csharp
+options.Events = new JwtBearerEvents()
+{
+    OnTokenValidated = context =>
+    {
+        var claims = context.Principal?.Claims;
+        if (claims is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILogger<Program>>();
+
+        foreach (var claim in claims)
+        {
+            logger.LogInformation(
+                "Claim: {ClaimType} = {ClaimValue}",
+                claim.Type, claim.Value);
+        }
+
+        return Task.CompletedTask;
+    }
+};
+```
+
+**Breaking it down:**
+
+`context.Principal?.Claims` — the `ClaimsPrincipal` built from the validated token. These are the claims *after* any mapping (`MapInboundClaims`) has been applied.
+
+`context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()` — resolves the logger from DI. Event handlers don't get constructor injection, so you pull services from the request's service provider.
+
+This is a debugging tool — remove or guard it behind a feature flag before production. Logging every claim on every request is noisy and can leak sensitive information.
+
+---
 ### Applying Policies to Endpoints
 
 **The problem:**

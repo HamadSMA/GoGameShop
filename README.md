@@ -119,9 +119,10 @@ GoGameShop/
 │   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
 │   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
 │   │       ├── Shared/                   # Cross-cutting concerns
-│   │       │   ├── Authorization/        # Policies and Roles static constant classes
+│   │       │   ├── Authorization/        # Policies, Roles, and ClaimTypes static constant classes
 │   │       │   ├── ErrorHandling/        # GlobalErrorHandler (IExceptionHandler)
 │   │       │   ├── FileUpload/           # FileUploader service and FileUploadResult
+│   │       │   ├── Schemes/              # Authentication scheme name constants (e.g. Keycloak)
 │   │       │   └── Timing/               # RequestTimingMiddleware (custom middleware, kept for reference)
 │   │       ├── Features/                 # Vertical slices by feature
 │   │       │   ├── Games/
