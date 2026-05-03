@@ -259,42 +259,51 @@ builder.Services.AddSingleton<IAuthorizationHandler, BasketAuthorizationHandler>
 `AddJwtBearer()` with no arguments registers a single default scheme. That works when there's only one identity provider. But once you integrate a real provider like Keycloak, you need to configure its specific settings (issuer URL, audience, etc.) separately from the generic defaults — and you need a way to tell the framework which scheme to use as the default.
 
 **What it does:**
-A named scheme lets you register multiple JWT bearer configurations under different names. You then set one as the default so the framework knows which to use when no scheme is explicitly specified.
+A named scheme lets you register multiple JWT bearer configurations under different names. You then set one as the default so the framework knows which to use when no scheme is explicitly specified. The auth registration is wrapped in an extension method on `IHostApplicationBuilder` so `Program.cs` stays a list of one-line composition calls.
 
-**In code — `Program.cs`:**
+**In code — `Shared/Authorization/AuthorizationExtensions.cs`:**
 ```csharp
-builder.Services.AddSingleton<KeycloakClaimsTransformer>();
+public static IHostApplicationBuilder AddGoGameShopAuthentication(
+    this IHostApplicationBuilder builder)
+{
+    builder.Services.AddSingleton<KeycloakClaimsTransformer>();
 
-builder
-    .Services.AddAuthentication(Schemes.Keycloak)
-    .AddJwtBearer(options =>
-    {
-        options.MapInboundClaims = false;
-        options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
-    })
-    .AddJwtBearer(
-        Schemes.Keycloak,
-        options =>
+    builder
+        .Services.AddAuthentication(Schemes.Keycloak)
+        .AddJwtBearer(options =>
         {
-            options.Authority = "http://localhost:8080/realms/gogameshop";
-            options.Audience = "gogameshop-api";
             options.MapInboundClaims = false;
             options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
-            options.RequireHttpsMetadata = false;
-            options.Events = new JwtBearerEvents()
+        })
+        .AddJwtBearer(
+            Schemes.Keycloak,
+            options =>
             {
-                OnTokenValidated = context =>
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+                options.RequireHttpsMetadata = false;
+                options.Events = new JwtBearerEvents()
                 {
-                    var transformer = context.HttpContext.RequestServices
-                        .GetRequiredService<KeycloakClaimsTransformer>();
+                    OnTokenValidated = context =>
+                    {
+                        var transformer = context.HttpContext.RequestServices
+                            .GetRequiredService<KeycloakClaimsTransformer>();
 
-                    transformer.Transform(context);
+                        transformer.Transform(context);
 
-                    return Task.CompletedTask;
-                }
-            };
-        }
-    );
+                        return Task.CompletedTask;
+                    }
+                };
+            }
+        );
+    return builder;
+}
+```
+
+`Program.cs` then just calls it:
+```csharp
+builder.AddGoGameShopAuthentication();
+builder.AddGoGameShopAuthorization();
 ```
 
 **Breaking it down:**
@@ -303,11 +312,7 @@ builder
 
 `AddJwtBearer(options => ...)` — registers the unnamed/default JWT Bearer scheme. This one has no Authority or Audience — it's a generic fallback.
 
-`AddJwtBearer(Schemes.Keycloak, options => ...)` — registers a second JWT Bearer scheme named `"Keycloak"` with provider-specific settings.
-
-`Authority` — the URL of the identity provider's realm. The middleware fetches the OpenID Connect discovery document from `{Authority}/.well-known/openid-configuration` to learn the signing keys, issuer, and supported endpoints — no manual key configuration needed.
-
-`Audience` — the expected `aud` claim in the token. The middleware rejects tokens that aren't intended for this API. In Keycloak, this matches the client ID.
+`AddJwtBearer(Schemes.Keycloak, options => ...)` — registers a second JWT Bearer scheme named `"Keycloak"` with provider-specific settings. Notice that `Authority` and `Audience` are **not** set here — they come from configuration via auto-binding (next section).
 
 `RequireHttpsMetadata = false` — allows fetching the discovery document over HTTP instead of HTTPS. Required for local development with Keycloak on `http://localhost:8080`. Never disable this in production.
 
@@ -319,6 +324,52 @@ public static class Schemes
     public const string Keycloak = nameof(Keycloak);
 }
 ```
+
+---
+### Binding JWT Options from Configuration
+
+**The problem:**
+Hardcoding `options.Authority = "http://localhost:8080/..."` and `options.Audience = "gogameshop-api"` in `Program.cs` (or an extension method) glues the API to one environment at compile time. Production needs a different authority URL, staging another — and shipping localhost URLs in the binary is a smell. The standard .NET answer is `appsettings.{Environment}.json` plus configuration binding, but wiring that by hand for `JwtBearerOptions` is repetitive.
+
+**What it does:**
+Since .NET 8, `Microsoft.AspNetCore.Authentication.JwtBearer` automatically binds `JwtBearerOptions` from `Authentication:Schemes:{SchemeName}` in the configuration system. As long as the JSON keys match `JwtBearerOptions` properties (or their `TokenValidationParameters` properties), values flow in without any `builder.Configuration.Bind(...)` glue. Set them in the JSON and they show up on `options` at runtime — overrides per environment work the same way `appsettings` always does.
+
+**In `appsettings.json` (committed defaults):**
+```json
+"Authentication": {
+  "Schemes": {
+    "Keycloak": {
+      "ValidAudience": "gogameshop-api",
+      "Authority": "http://localhost:8080/realms/gogameshop"
+    }
+  }
+}
+```
+
+**In `appsettings.Development.json` (env-specific overrides):**
+```json
+"Authentication": {
+  "Schemes": {
+    "Keycloak": {
+      "ValidAudience": "gogameshop-api",
+      "Authority": "http://localhost:8080/realms/gogameshop"
+    }
+  }
+}
+```
+
+**Two pitfalls worth knowing:**
+
+1. **The section name must match the scheme name exactly.** If `AddJwtBearer(Schemes.Keycloak, ...)` registers a scheme called `"Keycloak"`, the JSON key must be `Keycloak`, not `Bearer` or `JwtBearer`. The default unnamed scheme is `"Bearer"`, so the dotnet user-jwts template uses that key — copy-pasting that template under a named scheme silently leaves the named scheme unconfigured.
+
+2. **`ValidAudience` (singular) vs `ValidAudiences` (plural) differ in type.** The singular binds to a `string`. The plural binds to `IEnumerable<string>` and *requires a JSON array* — passing a bare string under the plural key silently leaves the property empty, and audience validation fails with `IDX10214: Audience validation failed ... validationParameters.ValidAudience: 'null' or validationParameters.ValidAudiences: 'empty'`. Use `"ValidAudience": "gogameshop-api"` for one audience, `"ValidAudiences": ["a", "b"]` only when there are multiple.
+
+**Why not put everything in `appsettings.Development.json`?**
+Either pattern works, but only one should hold the "real" values to avoid confusion:
+- Keep dev defaults in `appsettings.json`, override per-env in `appsettings.Production.json` (and friends) — pragmatic for a learning project, no hidden state.
+- Keep `appsettings.json` empty of env-specific keys, put each env's values in its `appsettings.{Env}.json` — cleaner separation, no localhost leaking into prod by accident.
+
+The project currently duplicates the same keys in both files; pick one when adding a real production config.
 
 ---
 ### Custom ClaimTypes Constant

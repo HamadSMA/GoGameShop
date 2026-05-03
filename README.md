@@ -76,6 +76,7 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 
 - **ConnectionStrings:GoGameShop:** SQLite connection string — defined in `appsettings.Development.json` (Default: `Data Source=GoGameShop.db`).
 - **Logging:** Log levels are configured per namespace. EF Core SQL command logging is set to `Warning` in development to suppress verbose query output.
+- **Authentication:Schemes:Keycloak:** JWT bearer options for the named `Keycloak` scheme. `Authority` is the Keycloak realm URL and `ValidAudience` is the expected `aud` claim (the Keycloak client ID). .NET 8+ binds these onto `JwtBearerOptions` automatically — no `builder.Configuration.Bind(...)` glue needed.
 
 ## API Endpoints
 
@@ -119,10 +120,9 @@ GoGameShop/
 │   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
 │   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
 │   │       ├── Shared/                   # Cross-cutting concerns
-│   │       │   ├── Authorization/        # Policies, Roles, ClaimTypes, and KeycloakClaimsTransformer (splits the OAuth `scope` string into per-scope claims)
+│   │       │   ├── Authorization/        # Policies, Roles, ClaimTypes, Schemes, AuthorizationExtensions (Add* extension methods), and KeycloakClaimsTransformer (splits the OAuth `scope` string into per-scope claims)
 │   │       │   ├── ErrorHandling/        # GlobalErrorHandler (IExceptionHandler)
 │   │       │   ├── FileUpload/           # FileUploader service and FileUploadResult
-│   │       │   ├── Schemes/              # Authentication scheme name constants (e.g. Keycloak)
 │   │       │   └── Timing/               # RequestTimingMiddleware (custom middleware, kept for reference)
 │   │       ├── Features/                 # Vertical slices by feature
 │   │       │   ├── Games/
