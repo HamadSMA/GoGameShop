@@ -36,6 +36,8 @@ builder.Services.AddSingleton<FileUploader>();
 
 // Authentication and Authorization service add its middleware automatically, no need to add it to the pipeline unless it creates conflict, then it must be added manually in the pipeline
 
+builder.Services.AddSingleton<KeycloakClaimsTransformer>();
+
 builder
     .Services.AddAuthentication(Schemes.Keycloak)
     .AddJwtBearer(options =>
@@ -56,19 +58,10 @@ builder
             {
                 OnTokenValidated = context =>
                 {
-                    var claims = context.Principal?.Claims;
-                    if (claims is null)
-                    {
-                        return Task.CompletedTask;
-                    }
+                    var transformer =
+                        context.HttpContext.RequestServices.GetRequiredService<KeycloakClaimsTransformer>();
 
-                    var logger = context.HttpContext.RequestServices
-                        .GetRequiredService<ILogger<Program>>();
-
-                    foreach (var claim in claims)
-                    {
-                        logger.LogInformation("Claim: {ClaimType} = {ClaimValue}", claim.Type, claim.Value);
-                    }
+                    transformer.Transform(context);
 
                     return Task.CompletedTask;
                 }
