@@ -105,9 +105,87 @@ Realm roles fit when there's one API and one logical permission model; client ro
 2. **Assign role** → filter to *Realm roles* → check `Admin` → **Assign**
 
 **How roles reach the API:**
-After login, Keycloak embeds the user's roles in the JWT under `realm_access.roles`. The API maps this claim to ASP.NET Core's role system so `[Authorize(Roles = "Admin")]` and policies like `AdminAccess` (defined in `Shared/Authorization/Policies.cs`) work as expected.
+After login, Keycloak embeds the user's realm roles in the JWT. The API maps that claim to ASP.NET Core's role system so `User.IsInRole("Admin")`, `RequireRole(Roles.Admin)`, and policies like `AdminAccess` (defined in `Shared/Authorization/Policies.cs`) all work as expected.
 
-The mapping happens in `Program.cs` via `JwtBearerOptions.TokenValidationParameters.RoleClaimType` — without it, ASP.NET Core looks for a `role` claim that Keycloak doesn't emit by default.
+The mapping happens in `Program.cs` via `JwtBearerOptions.TokenValidationParameters.RoleClaimType = ClaimTypes.Role`, where `ClaimTypes.Role` is the string `"role"`. ASP.NET Core then reads roles from the `role` claim — but **Keycloak doesn't emit a `role` claim by default**. The next section explains how to make it.
+
+---
+### Configuring the Roles Claim — `realm_access.roles` → `role`
+
+**The problem:**
+Out of the box, Keycloak's built-in `roles` client scope emits realm roles under a **nested** claim — `realm_access.roles` — and client roles under `resource_access.${client_id}.roles`. ASP.NET Core's role checks read a single flat claim name (whatever `RoleClaimType` is set to). The framework cannot navigate into a nested JSON object to find role values, so even though the roles are physically present in the JWT, `User.IsInRole("Admin")` returns `false` and `RequireRole(Roles.Admin)` quietly fails.
+
+**What it does:**
+Keycloak builds JWT claims through **protocol mappers** attached to client scopes. The realm-roles mapper has a `Token Claim Name` setting — change it from `realm_access.roles` to `role` and the mapper writes the user's realm roles to a top-level `role` claim instead. Setting `Multivalued = true` writes one JSON array entry per role rather than concatenating them into a single string. ASP.NET Core then unpacks the array into one `role` claim per role, and `RoleClaimType = "role"` finds them.
+
+**Steps (admin console):**
+1. **Client scopes** → open the built-in `roles` scope
+2. **Mappers** tab → open the **realm roles** mapper
+3. Change **Token Claim Name** from `realm_access.roles` to `role`
+4. Toggle **Multivalued** **on**
+5. Toggle **Add to access token** **on** (it usually already is)
+6. **Save**
+
+**What ends up in the access token:**
+Before:
+```json
+{
+  "realm_access": { "roles": ["Admin", "default-roles-gogameshop"] }
+}
+```
+
+After:
+```json
+{
+  "role": ["Admin", "default-roles-gogameshop"]
+}
+```
+
+`MapInboundClaims = false` in `Program.cs` is what keeps the claim name as the literal string `role` — without it, the JWT middleware would rewrite it to a long Microsoft-style URL and `RoleClaimType = "role"` would no longer match.
+
+> Built-in Keycloak roles like `default-roles-gogameshop`, `offline_access`, and `uma_authorization` will also land in the `role` claim. They're harmless — `RequireRole(Roles.Admin)` only matches `Admin`. Strip them with a custom mapper only if claim size becomes a concern.
+
+---
+### Configuring Scopes — Why the API Has to Split the String
+
+**The problem:**
+The API's `UserAccess` policy calls `RequireClaim(ClaimTypes.Scope, "gogameshop_api.all")` — it expects to find a `scope` claim whose value is exactly `"gogameshop_api.all"`. But the access token Keycloak issues looks like this:
+
+```json
+{
+  "scope": "openid profile email gogameshop_api.all"
+}
+```
+
+`RequireClaim` does an exact-match comparison on the claim value, so it sees the whole space-separated string and never matches the single scope `"gogameshop_api.all"` inside it. Every protected endpoint returns `403 Forbidden`.
+
+**Why Keycloak emits it that way:**
+This is **mandated by the OAuth 2.0 spec** (RFC 6749 §3.3 and RFC 8693): the `scope` claim is a single string of space-separated scope names. There is no Keycloak setting that converts it into a JSON array — every spec-compliant authorization server sends scopes as one string. The fix has to happen on the resource server (the API), not on Keycloak.
+
+**The Keycloak side — defining the scope:**
+What Keycloak *does* control is which scope names exist and which clients can request them:
+
+1. **Client scopes** → **Create client scope**
+2. **Name:** `gogameshop_api.all`
+3. **Type:** `Default` (always issued for this client) or `Optional` (only when the client requests it via the `scope` parameter)
+4. **Protocol:** `openid-connect`
+5. **Include in token scope:** `On` — this is what makes the scope name appear inside the `scope` string of issued tokens
+6. **Save**
+7. Open the API's client (`gogameshop-api`) → **Client scopes** tab → assign the new scope as Default or Optional
+
+After this, tokens issued for the client carry `gogameshop_api.all` inside the space-separated `scope` value.
+
+**The API side — splitting the string:**
+The custom `KeycloakClaimsTransformer` (covered in [notes/07-auth.md](07-auth.md)) runs once per token validation, splits the `scope` claim on spaces, and re-adds one `Claim(ClaimTypes.Scope, ...)` per individual scope. After it runs, the principal carries:
+
+```
+scope = "openid"
+scope = "profile"
+scope = "email"
+scope = "gogameshop_api.all"
+```
+
+`RequireClaim(ClaimTypes.Scope, "gogameshop_api.all")` now finds a claim whose value matches exactly. This split-on-the-resource-server pattern is the standard approach across all OAuth-protected APIs — it isn't specific to ASP.NET Core or Keycloak.
 
 ---
 ### Export and Import Realm Configurations

@@ -66,14 +66,14 @@ builder
         Policies.UserAccess,
         authBuilder =>
         {
-            authBuilder.RequireClaim("scope", ApiAccessScope);
+            authBuilder.RequireClaim(ClaimTypes.Scope, ApiAccessScope);
         }
     )
     .AddPolicy(
         Policies.AdminAccess,
         authBuilder =>
         {
-            authBuilder.RequireClaim("scope", ApiAccessScope);
+            authBuilder.RequireClaim(ClaimTypes.Scope, ApiAccessScope);
             authBuilder.RequireRole(Roles.Admin);
         }
     );
@@ -263,6 +263,8 @@ A named scheme lets you register multiple JWT bearer configurations under differ
 
 **In code — `Program.cs`:**
 ```csharp
+builder.Services.AddSingleton<KeycloakClaimsTransformer>();
+
 builder
     .Services.AddAuthentication(Schemes.Keycloak)
     .AddJwtBearer(options =>
@@ -279,6 +281,18 @@ builder
             options.MapInboundClaims = false;
             options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
             options.RequireHttpsMetadata = false;
+            options.Events = new JwtBearerEvents()
+            {
+                OnTokenValidated = context =>
+                {
+                    var transformer = context.HttpContext.RequestServices
+                        .GetRequiredService<KeycloakClaimsTransformer>();
+
+                    transformer.Transform(context);
+
+                    return Task.CompletedTask;
+                }
+            };
         }
     );
 ```
@@ -310,7 +324,7 @@ public static class Schemes
 ### Custom ClaimTypes Constant
 
 **The problem:**
-The JWT `role` claim name is referenced in multiple places — `RoleClaimType` configuration, `IsInRole()` checks, etc. Hardcoding `"role"` everywhere is the same magic-string problem that `Roles` and `Policies` classes solved. Additionally, `System.Security.Claims.ClaimTypes` already exists in .NET and uses long URL-style claim names that don't match the short names in JWTs from external providers.
+The JWT `role` and `scope` claim names are referenced in multiple places — `RoleClaimType` configuration, `RequireClaim(...)` calls in policies, the claims transformer, etc. Hardcoding `"role"` and `"scope"` everywhere is the same magic-string problem that `Roles` and `Policies` classes solved. Additionally, `System.Security.Claims.ClaimTypes` already exists in .NET and uses long URL-style claim names that don't match the short names in JWTs from external providers.
 
 **What it does:**
 A project-specific `ClaimTypes` class with `const string` fields for the short JWT claim names used by the identity provider:
@@ -321,54 +335,67 @@ namespace GoGameShop.Api.Shared.Authorization;
 public static class ClaimTypes
 {
     public const string Role = "role";
+
+    public const string Scope = "scope";
 }
 ```
 
 This shadows the framework's `System.Security.Claims.ClaimTypes` — which is intentional. The project uses short claim names (`role`, `sub`, `scope`) from the JWT spec, not the long Microsoft-style URLs.
 
 ---
-### JwtBearerEvents — Debugging Token Claims
+### Claims Transformation — Splitting the `scope` Claim
 
 **The problem:**
-When authorization fails and you don't know why, you need to see exactly what claims the token contains. The decoded JWT might look correct in a tool like jwt.io, but the middleware's claim mapping can rename or drop claims silently. You need to see the claims *after* the middleware processes them.
+The OAuth 2.0 spec defines the `scope` claim as a **single space-separated string** — `"openid profile gogameshop_api.all"`. ASP.NET Core's `RequireClaim("scope", "gogameshop_api.all")` does an exact-match comparison against a claim's value, so it sees the whole string and never matches a single scope inside it. Authorization built on individual scopes breaks unless something splits the string into one claim per scope first.
 
 **What it does:**
-`JwtBearerEvents` exposes lifecycle hooks that run during token processing. `OnTokenValidated` fires after the token is successfully validated and claims are parsed — the perfect place to log what the framework actually sees.
+`KeycloakClaimsTransformer` is a small project-owned class with a `Transform(TokenValidatedContext)` method. It is invoked from `JwtBearerEvents.OnTokenValidated` once per token validation — it pulls the single `scope` claim off the principal, splits it on spaces, and re-adds one `scope` claim per individual scope. After it runs, `RequireClaim(ClaimTypes.Scope, "gogameshop_api.all")` matches as expected.
 
-**In code — `Program.cs`:**
+**In code — `Shared/Authorization/KeycloakClaimsTransformer.cs`:**
 ```csharp
-options.Events = new JwtBearerEvents()
+public class KeycloakClaimsTransformer(ILogger<KeycloakClaimsTransformer> logger)
 {
-    OnTokenValidated = context =>
+    public void Transform(TokenValidatedContext context)
     {
-        var claims = context.Principal?.Claims;
-        if (claims is null)
+        var identity = context.Principal?.Identity as ClaimsIdentity;
+
+        var scopeClaim = identity?.FindFirst(ClaimTypes.Scope);
+        if (scopeClaim is null)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        var logger = context.HttpContext.RequestServices
-            .GetRequiredService<ILogger<Program>>();
+        var scopes = scopeClaim.Value.Split(' ');
+        identity?.RemoveClaim(scopeClaim);
+        identity?.AddClaims(scopes.Select(s => new Claim(ClaimTypes.Scope, s)));
 
-        foreach (var claim in claims)
+        foreach (var claim in context.Principal?.Claims ?? [])
         {
-            logger.LogInformation(
-                "Claim: {ClaimType} = {ClaimValue}",
+            logger.LogTrace("Claim: {ClaimType}, Value: {ClaimValue}",
                 claim.Type, claim.Value);
         }
-
-        return Task.CompletedTask;
     }
-};
+}
 ```
 
-**Breaking it down:**
+The class is registered as a singleton and resolved from the request's service provider inside `OnTokenValidated`, because event handlers don't get constructor injection. Claim logging is at `Trace` level so it stays off in normal runs and can be enabled via `appsettings.json` only when actively debugging an authorization failure.
 
-`context.Principal?.Claims` — the `ClaimsPrincipal` built from the validated token. These are the claims *after* any mapping (`MapInboundClaims`) has been applied.
+---
+### Why a Custom Class Instead of `IClaimsTransformer`
 
-`context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()` — resolves the logger from DI. Event handlers don't get constructor injection, so you pull services from the request's service provider.
+**The problem:**
+ASP.NET Core ships an `IClaimsTransformer` interface for exactly this kind of post-authentication claim shaping. The natural instinct is to use it. But its lifecycle is wrong for splitting the `scope` claim, and using it the wrong way leads to either duplicated claims or wasted CPU on every request.
 
-This is a debugging tool — remove or guard it behind a feature flag before production. Logging every claim on every request is noisy and can leak sensitive information.
+**What `IClaimsTransformer` actually does:**
+`IClaimsTransformer.TransformAsync` runs **on every authenticated request**, not once when the token is validated. The framework also documents that it may run multiple times for the same principal, so any implementation must be **idempotent** — running it twice must produce the same result as running it once. Splitting `"openid profile gogameshop_api.all"` once gives you three `scope` claims; running the same splitter again on a principal that now has three `scope` claims would either duplicate them or require an extra "have I already split?" check on every request.
+
+**Why the custom class wins here:**
+- **Runs once, not per request.** `OnTokenValidated` fires when the JWT middleware first builds the `ClaimsPrincipal` from the token. After that, the same principal is reused for the lifetime of the authentication — no further work needed on subsequent requests.
+- **No idempotency burden.** Because it runs exactly once per token, the splitter doesn't have to detect and skip its own previous output.
+- **Scoped to the Keycloak scheme.** `Events` is set on the named `Schemes.Keycloak` JWT bearer registration, so the transformation only applies to tokens from that scheme. An `IClaimsTransformer` is global — it runs against every authenticated principal regardless of scheme.
+- **Plain class, plain DI.** It's just a class with a `Transform` method. No interface contract, no `ClaimsPrincipal` cloning that `IClaimsTransformer` implementations are expected to do, no ceremony.
+
+The naming is deliberate — `KeycloakClaimsTransformer` describes the *purpose*, not the framework interface it implements. It deliberately does not implement `IClaimsTransformer`.
 
 ---
 ### Applying Policies to Endpoints

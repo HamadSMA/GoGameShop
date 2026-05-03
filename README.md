@@ -119,7 +119,7 @@ GoGameShop/
 │   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
 │   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
 │   │       ├── Shared/                   # Cross-cutting concerns
-│   │       │   ├── Authorization/        # Policies, Roles, and ClaimTypes static constant classes
+│   │       │   ├── Authorization/        # Policies, Roles, ClaimTypes, and KeycloakClaimsTransformer (splits the OAuth `scope` string into per-scope claims)
 │   │       │   ├── ErrorHandling/        # GlobalErrorHandler (IExceptionHandler)
 │   │       │   ├── FileUpload/           # FileUploader service and FileUploadResult
 │   │       │   ├── Schemes/              # Authentication scheme name constants (e.g. Keycloak)
