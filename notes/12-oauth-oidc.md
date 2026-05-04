@@ -14,6 +14,42 @@ OAuth 2.0 was designed for *authorization* (granting access). It deliberately do
 Keycloak speaks both. The GoGameShop API uses the OIDC layer (it cares about identity — who owns this basket?), and Postman uses the OAuth flow to get a token to send to the API.
 
 ---
+### What OIDC adds on top of OAuth
+
+OAuth gives clients an access token — useful for calling APIs, but silent on *who* is using the app. OIDC layers six concrete additions on top:
+
+| Addition | What it gives the client |
+|---|---|
+| **Identity verification** | A signed **ID token** the client can verify cryptographically — proof that "user X just logged in", not a self-asserted claim |
+| **Standard scopes** | `openid` (the OIDC trigger), `profile`, `email`, `address`, `phone` — every OP recognizes them |
+| **Standard claims** | `sub`, `name`, `preferred_username`, `email`, `email_verified` — same names at Google, Keycloak, Entra ID, Auth0, etc. |
+| **UserInfo endpoint** | `/userinfo` returns the user's claims when called with an access token — useful when claims aren't in the ID token, or for fresh data |
+| **Single Sign-On** | Once the user has a session at the OP, every other relying party gets silent logins through the same browser session |
+| **Discovery** | `/.well-known/openid-configuration` publishes every endpoint URL and the public-key location, so clients don't hardcode them |
+
+The practical effect: any app written against the OIDC spec can swap `Authority` from Keycloak to Google to Entra ID with no code changes — the spec guarantees the endpoint shapes and claim names line up.
+
+---
+### OpenID Providers in the wild
+
+An **OpenID Provider (OP)** is any service that implements the OIDC spec — exposes the discovery doc, signs ID tokens, hosts the sign-in page. Once you've integrated against one, integrating against any other is mostly config changes.
+
+| Provider | Hosted / self-hosted | Typical use |
+|---|---|---|
+| **Google Identity** | Hosted | "Sign in with Google" — *the* most widely used OP on the public web |
+| **Microsoft Entra ID** (formerly Azure AD) | Hosted | Dominant in enterprises and Office 365 shops |
+| **Apple** ("Sign in with Apple") | Hosted | Mandatory on iOS apps that offer other social logins |
+| **Meta / Facebook Login** | Hosted | Consumer social login |
+| **GitHub** | Hosted | Developer tools, dev SaaS |
+| **Okta / Auth0** | Hosted | Identity-as-a-Service for B2B SaaS |
+| **AWS Cognito** | Hosted | AWS-native apps |
+| **Ping Identity, ForgeRock** | Hosted / on-prem | Large enterprise IAM |
+| **Keycloak** | Self-hosted (open source) | What this project uses — full control, no per-user fees |
+| **Authentik, Zitadel, Ory Hydra** | Self-hosted | Modern Keycloak alternatives |
+
+**Most widely used:** by sign-in volume on the public internet, **Google** is the largest consumer OP. In the enterprise, **Microsoft Entra ID** is the largest. Among self-hosted open-source OPs, **Keycloak** is the most widely deployed — which is why this project picked it.
+
+---
 ### The four roles in every flow
 
 Every OAuth/OIDC interaction has exactly four roles. Get these straight and the rest of the spec stops feeling magical:
@@ -26,6 +62,30 @@ Every OAuth/OIDC interaction has exactly four roles. Get these straight and the 
 | **Resource Server** | GoGameShop API | Holds the data, validates tokens |
 
 The whole protocol is choreography between these four. The client never sees the user's password. The resource server never talks to the authorization server's user database. Each role only knows what it strictly needs to.
+
+---
+### OIDC vocabulary and the high-level flow
+
+OIDC is OAuth's choreography with a different cast list. The four roles get renamed to make it clear we're talking about *identity*, not just *delegated access*:
+
+| OAuth term | OIDC term | In this project |
+|---|---|---|
+| Resource Owner | **End-User** | The human |
+| Client | **Relying Party (RP)** | Postman, a future frontend, the API itself when it consumes ID tokens |
+| Authorization Server | **OpenID Provider (OP)** | Keycloak |
+| Resource Server | Resource Server (same name) | GoGameShop API |
+
+**The end-to-end flow in one line:**
+
+```
+End-User → Relying Party → redirect → OpenID Provider (sign-in page)
+        ← redirect with authorization code ←
+Relying Party → /token → OpenID Provider
+              ← access token + ID token ←
+Relying Party → /api/... (Bearer access_token) → Resource Server
+```
+
+The "sign-in page" lives at the OP — never at the RP. That's the whole point: the user types their password into Keycloak, not into Postman or a third-party app. The RP only ever sees tokens.
 
 ---
 ### The grant types (flows)
@@ -160,6 +220,32 @@ Then `AddJwtBearer` in the API validates `TokenValidationParameters.ValidAudienc
 
 Every OIDC server exposes the same well-known set of endpoints. Keycloak puts them under `/realms/{realm}/protocol/openid-connect/`. The discovery document at `/.well-known/openid-configuration` lists them all — that's how `AddJwtBearer` finds the public keys without being told their URL explicitly.
 
+#### Discovery endpoint
+
+**URL:** `http://localhost:8080/realms/gogameshop/.well-known/openid-configuration`
+
+**Used for:** A single GET that returns a JSON document listing every other endpoint, the supported scopes, the supported signing algorithms, and the URL of the public-key set. Every OIDC client starts here.
+
+**Why it matters:** The client only needs to know the **issuer URL** (`http://localhost:8080/realms/gogameshop`). Everything else — the auth endpoint, the token endpoint, the JWKS URL, supported scopes — comes out of this document. That's how `AddJwtBearer` in the API can validate tokens after being told only `Authority` and nothing else.
+
+**A trimmed example of what comes back:**
+
+```json
+{
+  "issuer": "http://localhost:8080/realms/gogameshop",
+  "authorization_endpoint": ".../protocol/openid-connect/auth",
+  "token_endpoint": ".../protocol/openid-connect/token",
+  "userinfo_endpoint": ".../protocol/openid-connect/userinfo",
+  "jwks_uri": ".../protocol/openid-connect/certs",
+  "end_session_endpoint": ".../protocol/openid-connect/logout",
+  "response_types_supported": ["code", "id_token", "token id_token"],
+  "scopes_supported": ["openid", "profile", "email", "..."],
+  "id_token_signing_alg_values_supported": ["RS256", "..."]
+}
+```
+
+Swap `Authority` to `https://accounts.google.com` and the same shape of document comes back from Google — that's why the API doesn't have to hardcode anything Keycloak-specific.
+
 #### Authorization endpoint
 
 **URL:** `http://localhost:8080/realms/gogameshop/protocol/openid-connect/auth`
@@ -244,6 +330,107 @@ Most clients handle refresh automatically when configured: when an access token 
 A JWT that **identifies the user to the client** (not to the API). Contains `sub`, `email`, `name`, etc. The client reads this to know who logged in. The API doesn't care about the ID token — it has its own access token to validate.
 
 This is the single biggest difference between OAuth and OIDC: OAuth gives you an access token (good for API calls); OIDC additionally gives you an ID token (good for "show the user's name in the top-right").
+
+#### UserInfo endpoint
+
+**URL:** `http://localhost:8080/realms/gogameshop/protocol/openid-connect/userinfo`
+
+**Used for:** Fetching fresh user claims (`sub`, `email`, `name`, …) by presenting an access token. The client calls it as `GET /userinfo` with `Authorization: Bearer <access_token>` and gets a JSON object of claims back.
+
+**Example response:**
+
+```json
+{
+  "sub": "f:1c2a…",
+  "preferred_username": "alice",
+  "email": "alice@example.com",
+  "email_verified": true,
+  "name": "Alice Example"
+}
+```
+
+**When you'd use it:**
+- When the ID token is too small — mappers can be configured to put claims into UserInfo only, keeping the ID token slim
+- When the client wants the *current* email/name, not the values frozen into the ID token at login time
+- Some clients skip it entirely if everything they need is already in the ID token — that's fine
+
+The GoGameShop API doesn't call `/userinfo` — it validates the access token and reads claims directly from it. UserInfo is more relevant for frontend apps that show "Logged in as …".
+
+#### JWKS endpoint (public keys)
+
+**URL:** `http://localhost:8080/realms/gogameshop/protocol/openid-connect/certs`
+
+**Used for:** Publishing the OP's public keys as a JWKS (JSON Web Key Set), so resource servers can verify token signatures.
+
+**Why a separate endpoint:** Keycloak signs every token with its **private** key — that key never leaves the OP. Anyone who wants to *verify* a token needs the matching **public** key, but the public key changes occasionally (key rotation). Hosting it at a stable URL lets the API fetch and cache it on demand and pick up new keys automatically.
+
+**How the API finds this URL:** it doesn't — `AddJwtBearer` reads the `jwks_uri` field out of the discovery document and caches the keys on first use, refreshing periodically.
+
+The shape of the response, what each field means, and how key rotation works are covered in the next section.
+
+---
+### JSON Web Key Set (JWKS)
+
+A **JSON Web Key Set** is a JSON document that lists one or more **JSON Web Keys (JWKs)**. A JWK is the JSON encoding of a single cryptographic key — public or private — with metadata describing what the key is and how to use it. Every OIDC provider publishes its **public** signing keys as a JWKS at the URL advertised under `jwks_uri` in the discovery document.
+
+**Why this format exists:** PEM/X.509 certificates were the historical way to ship public keys, but they're awkward to parse in browsers and JS-heavy clients. JWK is JSON-native, easy to decode, and carries metadata (algorithm, intended use, key ID) right alongside the key bytes — so a client can pick the right key without parsing certificates.
+
+#### What's in a JWK
+
+For an RSA signing key (the default Keycloak issues), each entry looks like:
+
+```json
+{
+  "kid": "abc123…",
+  "kty": "RSA",
+  "alg": "RS256",
+  "use": "sig",
+  "n": "<base64url-encoded modulus>",
+  "e": "AQAB"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `kid` | **Key ID.** A short label that uniquely identifies this key within the set. The `kid` in the JWT's header tells the verifier which JWK to use. |
+| `kty` | **Key type.** `RSA`, `EC` (elliptic curve), or `oct` (symmetric). Tells the verifier how to interpret the rest of the fields. |
+| `alg` | **Algorithm.** Which signing algorithm this key is meant for — `RS256`, `RS384`, `ES256`, etc. The verifier rejects the token if the JWT's `alg` doesn't match. |
+| `use` | **Use.** `sig` for signature verification, `enc` for encryption. A signing key must not be used for encryption and vice versa. |
+| `n`, `e` | **RSA modulus and exponent.** The two numbers that make up the public RSA key, base64url-encoded. For an EC key these are replaced by `crv`/`x`/`y`. |
+
+A full JWKS response wraps an array of these in a top-level `keys` field:
+
+```json
+{
+  "keys": [
+    { "kid": "abc123…", "kty": "RSA", "alg": "RS256", "use": "sig", "n": "...", "e": "AQAB" },
+    { "kid": "def456…", "kty": "RSA", "alg": "RS256", "use": "sig", "n": "...", "e": "AQAB" }
+  ]
+}
+```
+
+#### How verification uses the JWKS
+
+When the API receives a token, JWT validation runs roughly like this:
+
+1. Decode the JWT header, read `alg` and `kid`
+2. Look up the JWK in the cached JWKS by `kid`
+3. Reconstruct the public key from `n` and `e` (or `crv`/`x`/`y` for EC keys)
+4. Verify the signature on the JWT using that key and the algorithm from the header
+5. If anything mismatches, reject the token
+
+`AddJwtBearer` does all of this automatically once it has the JWKS — the developer never touches the keys directly.
+
+#### Key rotation
+
+OPs rotate signing keys periodically (Keycloak rotates them on a schedule and during disaster recovery). The flow handles this gracefully because:
+
+- The JWKS can hold **multiple keys at once**. During rotation Keycloak publishes both the old key and the new key for an overlap window.
+- Every token's header carries a `kid`, so already-issued tokens (signed with the old key) still verify against the still-published old key.
+- New tokens are signed with the new key.
+- Eventually the old key drops off the JWKS; by then no unexpired tokens reference it.
+
+The cache in `AddJwtBearer` refreshes the JWKS on schedule (default ~24 hours) and on demand if it sees a `kid` it doesn't know — which means newly rotated keys propagate automatically without a redeploy.
 
 ---
 ### End-to-end: what happens when Postman talks to Keycloak
