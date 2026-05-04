@@ -1,4 +1,4 @@
-## Language and Patterns
+## C# Essentials
 
 ### Extension Methods
 
@@ -437,36 +437,6 @@ public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string folde
 | **FluentValidation / Data Annotations** | Declare rules on a class; the framework runs them automatically | DTO/model validation at the API boundary (see [Data Annotations & Validation](#data-annotations--validation)) |
 
 The approach in `FileUploader` is fail-fast + result object (not exceptions), because these are **expected, recoverable failures** caused by user input — not bugs. Exceptions are reserved for genuinely unexpected situations.
-
----
-### Vertical Slice Architecture
-
-**The problem:**
-Layered architectures (`Controllers/`, `Services/`, `Repositories/`) scatter the code for one feature across many folders. Adding "Create Game" means editing four files in four different layers, and a teammate who wants to understand the feature has to chase references across all of them.
-
-**What it does:**
-**Vertical slicing** organizes code by **feature** instead of by technical layer. Each folder owns everything one feature needs — endpoint, DTOs, validation, handlers — so adding a feature is adding a folder, and reading a feature is reading one folder.
-
-**In code:**
-```
-Features/
-├── Games/
-│   ├── GetGames/
-│   │   ├── GetGamesEndpoint.cs    # The route handler
-│   │   └── GetGamesDtos.cs        # The DTOs for this feature
-│   ├── GetGame/
-│   ├── CreateGame/
-│   ├── UpdateGame/
-│   └── DeleteGame/
-├── Genres/
-│   ├── GetGenresEndpoint.cs
-│   └── GetGenresDtos.cs
-└── Ratings/
-    ├── GetRatingsEndpoint.cs
-    └── GetRatingsDtos.cs
-```
-
-Each folder is a self-contained "slice" of the application. Adding a new feature means adding a new folder, not modifying multiple existing layers.
 
 ---
 ### LINQ (Language Integrated Query)

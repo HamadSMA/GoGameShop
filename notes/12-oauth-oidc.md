@@ -248,7 +248,7 @@ This is the single biggest difference between OAuth and OIDC: OAuth gives you an
 ---
 ### End-to-end: what happens when Postman talks to Keycloak
 
-Putting it all together. Here's exactly what flows where when you click **Get New Access Token** in Postman with the configuration from `notes/10-postman.md`.
+Putting it all together. Here's exactly what flows where when you click **Get New Access Token** in Postman with the configuration from `notes/11-postman.md`.
 
 **Postman config — and what each field is for:**
 
@@ -292,7 +292,7 @@ http://localhost:8080/realms/gogameshop/protocol/openid-connect/auth
   &code_challenge_method=S256
 ```
 
-**Step 2 — Browser opens.** Keycloak's login page renders. The user types their Keycloak username and password (the ones set up in `notes/09-keycloak.md` under *Creating Users*). Keycloak validates them against its database.
+**Step 2 — Browser opens.** Keycloak's login page renders. The user types their Keycloak username and password (the ones set up in `notes/10-keycloak.md` under *Creating Users*). Keycloak validates them against its database.
 
 **Step 3 — Keycloak redirects back.** On success, Keycloak generates a short-lived `code`, **stores the `code_challenge` against it internally**, and redirects the browser:
 
