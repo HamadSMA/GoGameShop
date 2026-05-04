@@ -15,6 +15,7 @@ public class KeycloakClaimsTransformer(ILogger<KeycloakClaimsTransformer> logger
         {
             return;
         }
+
         var scopes = scopeClaim.Value.Split(' ');
         identity?.RemoveClaim(scopeClaim);
 

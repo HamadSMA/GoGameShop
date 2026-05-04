@@ -1,10 +1,12 @@
 # GoGameShop (In Progress)
 
-A production-ready game store API for selling digital game keys. Built with the modern .NET stack, focusing on clean architecture and minimal API patterns.
+A production-ready game store API for selling digital game keys. Built with the modern .NET stack, focusing on clean
+architecture and minimal API patterns.
 
 ---
 
-> **AI Disclosure** — Source code is 100% handwritten. Commit messages are AI-generated. Docs and notes are collaborative — AI-assisted, personally reviewed, and edited.
+> **AI Disclosure** — Source code is 100% handwritten. Commit messages are AI-generated. Docs and notes are
+> collaborative — AI-assisted, personally reviewed, and edited.
 
 📓 **Dev Notes** — Running notes I take while building this project. [View notes →](./NOTES.md)
 
@@ -12,7 +14,9 @@ A production-ready game store API for selling digital game keys. Built with the 
 
 ## Overview
 
-GoGameShop is a backend service designed to manage a catalog of digital games, including features for browsing genres, ratings, and managing game details (CRUD operations). It leverages the latest .NET features to provide a performant and scalable foundation.
+GoGameShop is a backend service designed to manage a catalog of digital games, including features for browsing genres,
+ratings, and managing game details (CRUD operations). It leverages the latest .NET features to provide a performant and
+scalable foundation.
 
 ## Technology Stack
 
@@ -32,36 +36,40 @@ GoGameShop is a backend service designed to manage a catalog of digital games, i
 
 ## Setup & Run
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd GoGameShop
-    ```
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd GoGameShop
+   ```
 
-2.  **Restore dependencies:**
-    ```bash
-    dotnet restore
-    ```
+2. **Restore dependencies:**
+   ```bash
+   dotnet restore
+   ```
 
-3.  **Apply Database Migrations:**
-    The application uses SQLite. To set up the initial database:
-    ```bash
-    dotnet ef database update --project Backend/src/GoGameShop.Api
-    ```
-    *Note: The application calls `InitializeDbAsync()` on startup, which automatically applies migrations and seeds initial data (9 genres, 3 ratings).*
+3. **Apply Database Migrations:**
+   The application uses SQLite. To set up the initial database:
+   ```bash
+   dotnet ef database update --project Backend/src/GoGameShop.Api
+   ```
+   *Note: The application calls `InitializeDbAsync()` on startup, which automatically applies migrations and seeds
+   initial data (9 genres, 3 ratings).*
 
-4.  **Start Keycloak (local IAM server):**
-    ```bash
-    cd Backend/localinfra
-    docker compose up -d
-    ```
-    The Keycloak admin console is available at `http://localhost:8080` (bootstrap credentials: `admin` / `admin`). The committed `gogameshop-realm.json` can be imported via *Realm settings → Action → Partial import* to set up the realm, roles, and clients.
+4. **Start Keycloak (local IAM server):**
+   ```bash
+   cd Backend/localinfra
+   docker compose up -d
+   ```
+   The Keycloak admin console is available at `http://localhost:8080` (bootstrap credentials: `admin` / `admin`). The
+   committed `gogameshop-realm.json` can be imported via *Realm settings → Action → Partial import* to set up the realm,
+   roles, and clients.
 
-5.  **Run the application:**
-    ```bash
-    dotnet run --project Backend/src/GoGameShop.Api
-    ```
-    The API will be available at `http://localhost:5078` (or the port specified in `appsettings.json` / `launchSettings.json`).
+5. **Run the application:**
+   ```bash
+   dotnet run --project Backend/src/GoGameShop.Api
+   ```
+   The API will be available at `http://localhost:5078` (or the port specified in `appsettings.json` /
+   `launchSettings.json`).
 
 ## Scripts & Commands
 
@@ -74,35 +82,39 @@ GoGameShop is a backend service designed to manage a catalog of digital games, i
 
 Configuration is managed via `appsettings.json` and `appsettings.Development.json`.
 
-- **ConnectionStrings:GoGameShop:** SQLite connection string — defined in `appsettings.Development.json` (Default: `Data Source=GoGameShop.db`).
-- **Logging:** Log levels are configured per namespace. EF Core SQL command logging is set to `Warning` in development to suppress verbose query output.
-- **Authentication:Schemes:Keycloak:** JWT bearer options for the named `Keycloak` scheme. `Authority` is the Keycloak realm URL and `ValidAudience` is the expected `aud` claim (the Keycloak client ID). .NET 8+ binds these onto `JwtBearerOptions` automatically — no `builder.Configuration.Bind(...)` glue needed.
+- **ConnectionStrings:GoGameShop:** SQLite connection string — defined in `appsettings.Development.json` (Default:
+  `Data Source=GoGameShop.db`).
+- **Logging:** Log levels are configured per namespace. EF Core SQL command logging is set to `Warning` in development
+  to suppress verbose query output.
+- **Authentication:Schemes:Keycloak:** JWT bearer options for the named `Keycloak` scheme. `Authority` is the Keycloak
+  realm URL and `ValidAudience` is the expected `aud` claim (the Keycloak client ID). .NET 8+ binds these onto
+  `JwtBearerOptions` automatically — no `builder.Configuration.Bind(...)` glue needed.
 
 ## API Endpoints
 
 ### Games
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/games` | Get a paginated, searchable list of games (supports `pageNumber`, `pageSize`, and `Name` query params) |
-| `GET` | `/games/{id}` | Get a single game by ID |
-| `POST` | `/games` | Create a new game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy |
-| `PUT` | `/games/{id}` | Update an existing game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy |
-| `DELETE` | `/games/{id}` | Delete a game by ID — requires `AdminAccess` policy |
+| Method   | Route         | Description                                                                                                         |
+|----------|---------------|---------------------------------------------------------------------------------------------------------------------|
+| `GET`    | `/games`      | Get a paginated, searchable list of games (supports `pageNumber`, `pageSize`, and `Name` query params)              |
+| `GET`    | `/games/{id}` | Get a single game by ID                                                                                             |
+| `POST`   | `/games`      | Create a new game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy       |
+| `PUT`    | `/games/{id}` | Update an existing game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy |
+| `DELETE` | `/games/{id}` | Delete a game by ID — requires `AdminAccess` policy                                                                 |
 
 ### Baskets
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists — requires `UserAccess` policy (via fallback) |
-| `PUT` | `/baskets/{userId}` | Create or replace a customer's basket (upsert) — requires `UserAccess` policy (via fallback) |
+| Method | Route               | Description                                                                                                                               |
+|--------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `GET`  | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists — requires `UserAccess` policy (via fallback) |
+| `PUT`  | `/baskets/{userId}` | Create or replace a customer's basket (upsert) — requires `UserAccess` policy (via fallback)                                              |
 
 ### Genres & Ratings
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/genres` | Get all genres |
-| `GET` | `/ratings` | Get all ratings |
+| Method | Route      | Description     |
+|--------|------------|-----------------|
+| `GET`  | `/genres`  | Get all genres  |
+| `GET`  | `/ratings` | Get all ratings |
 
 ## Project Structure
 
@@ -162,7 +174,9 @@ GoGameShop/
 ## Tests
 
 - **TODO:** Implement automated unit and integration tests (e.g., using xUnit or NUnit).
-- **Manual Testing (HTTP file):** Use `Backend/gogameshop.http` with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension in VS Code or the built-in HTTP client in JetBrains Rider.
+- **Manual Testing (HTTP file):** Use `Backend/gogameshop.http` with
+  the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension in VS Code or the
+  built-in HTTP client in JetBrains Rider.
 - **Manual Testing (Postman):** Import collections from the `postman/collections/` directory into Postman.
 
 ## License

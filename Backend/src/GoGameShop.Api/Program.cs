@@ -2,7 +2,6 @@ using GoGameShop.Api.Features.Baskets;
 using GoGameShop.Api.Features.Baskets.Authorization;
 using GoGameShop.Api.Shared.Authorization;
 using GoGameShop.Api.Shared.FileUpload;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
 
