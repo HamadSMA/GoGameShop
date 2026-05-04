@@ -36,6 +36,4 @@ public class BasketAuthorizationHandler
 
 // Authorization requirement is a collection of data parameters
 // that a policy can use to evaluate the current user principle
-public class OwnerOrAdminRequirement : IAuthorizationRequirement
-{
-}
+public class OwnerOrAdminRequirement : IAuthorizationRequirement { }
