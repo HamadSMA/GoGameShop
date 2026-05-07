@@ -1,7 +1,55 @@
 ﻿@page "/"
+@inject GamesClient Games
 
-<PageTitle>Home</PageTitle>
+<PageTitle>GoGameShop</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="hero">
+    <h1>GoGameShop</h1>
+    <p>Discover and buy the best video games.</p>
+</div>
 
-Welcome to your new app.
+<AuthorizeView>
+    <Authorized>
+        @if (gamesPage is null)
+        {
+            <p>Loading...</p>
+        }
+        else
+        {
+            <div class="games-grid">
+                @foreach (var game in gamesPage.Games)
+                {
+                    <a href="/game/@game.Id" class="game-card">
+                        <img src="@game.ImageUri" alt="@game.Name" />
+                        <div class="game-card-body">
+                            <h3>@game.Name</h3>
+                            <p>@game.Genre &middot; @game.Rating</p>
+                            <strong>$@game.Price</strong>
+                        </div>
+                    </a>
+                }
+            </div>
+            <Pagination CurrentPage="page" TotalPages="gamesPage.TotalPages" BaseUrl="/" />
+        }
+    </Authorized>
+    <NotAuthorized>
+        <div class="browse-cta">
+            <p>Sign in to browse our full catalog of video games.</p>
+            <a href="/login" class="btn-primary">Login / Register</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [SupplyParameterFromQuery(Name = "page")] public int page { get; set; } = 1;
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private GamesPageDto? gamesPage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        if (state.User.Identity?.IsAuthenticated == true)
+            gamesPage = await Games.GetGamesAsync(page, pageSize: 9);
+    }
+}

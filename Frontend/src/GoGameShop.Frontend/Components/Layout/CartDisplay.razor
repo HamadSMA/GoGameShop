@@ -1,0 +1,19 @@
+@inject BasketState Basket
+
+<a href="/cart">
+    Cart
+    @if (count > 0)
+    {
+        <span class="cart-badge">@count</span>
+    }
+</a>
+
+@code {
+    private int count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var basket = await Basket.GetBasketAsync();
+        count = basket?.Items.Sum(i => i.Quantity) ?? 0;
+    }
+}

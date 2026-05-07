@@ -1,0 +1,87 @@
+@page "/cart"
+@attribute [Authorize]
+@attribute [StreamRendering]
+@inject BasketState Basket
+@inject NavigationManager Nav
+
+<PageTitle>Cart</PageTitle>
+<h1>Your Cart</h1>
+
+@if (basket is null)
+{
+    <p>Loading...</p>
+}
+else if (!basket.Items.Any())
+{
+    <p>Your cart is empty. <a href="/">Browse games</a></p>
+}
+else
+{
+    <div class="cart-layout">
+        <ul class="cart-items">
+            @foreach (var item in basket.Items)
+            {
+                <li class="cart-item">
+                    <img src="@item.ImageUri" alt="@item.Name" />
+                    <div>
+                        <a href="/game/@item.Id">@item.Name</a>
+                        <p>$@item.Price</p>
+                    </div>
+
+                    <form method="post" @formname="update-qty">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="QtyModel.GameId" value="@item.Id" />
+                        <select name="QtyModel.Quantity" onchange="this.form.submit()">
+                            @for (var q = 1; q <= 10; q++)
+                            {
+                                var qty = q;
+                                <option value="@qty" selected="@(qty == item.Quantity)">@qty</option>
+                            }
+                        </select>
+                    </form>
+
+                    <form method="post" @formname="remove-item">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="RemoveModel.GameId" value="@item.Id" />
+                        <button type="submit" class="btn-danger">Remove</button>
+                    </form>
+                </li>
+            }
+        </ul>
+
+        <div class="cart-summary">
+            <h2>Summary</h2>
+            <p>Items: @basket.Items.Sum(i => i.Quantity)</p>
+            <p><strong>Total: $@basket.Items.Sum(i => i.Price * i.Quantity)</strong></p>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromForm(FormName = "update-qty")]  public QtyForm?    QtyModel    { get; set; }
+    [SupplyParameterFromForm(FormName = "remove-item")] public RemoveForm? RemoveModel { get; set; }
+
+    private BasketDto? basket;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (QtyModel?.GameId is Guid qtyId)
+        {
+            await Basket.UpdateQuantityAsync(qtyId, QtyModel.Quantity);
+            Nav.NavigateTo("/cart", forceLoad: true);
+            return;
+        }
+
+        if (RemoveModel?.GameId is Guid removeId)
+        {
+            await Basket.RemoveItemAsync(removeId);
+            Nav.NavigateTo("/cart", forceLoad: true);
+            return;
+        }
+
+        basket = await Basket.GetBasketAsync();
+    }
+
+    public class QtyForm    { public Guid GameId { get; set; } public int Quantity { get; set; } }
+    public class RemoveForm { public Guid GameId { get; set; } }
+}

@@ -1,0 +1,27 @@
+@inject NavigationManager Nav
+
+<AuthorizeView>
+    <Authorized>
+        <img src="@GravatarUrl(context.User.FindFirst("email")?.Value)" class="avatar" alt="avatar" />
+        <span>@context.User.FindFirst("name")?.Value</span>
+        <form method="post" action="/logout">
+            <AntiforgeryToken />
+            <button type="submit" class="btn-secondary">Logout</button>
+        </form>
+    </Authorized>
+    <NotAuthorized>
+        <a href="/login?returnUrl=@Uri.EscapeDataString(Nav.Uri)" class="btn-primary">Login</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private static string GravatarUrl(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return string.Empty;
+        var hash = Convert.ToHexString(
+            System.Security.Cryptography.MD5.HashData(
+                System.Text.Encoding.UTF8.GetBytes(email.Trim().ToLower())))
+            .ToLower();
+        return $"https://www.gravatar.com/avatar/{hash}?d=identicon";
+    }
+}

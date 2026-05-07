@@ -2,6 +2,7 @@ using GoGameShop.Frontend.Auth;
 using GoGameShop.Frontend.Clients;
 using GoGameShop.Frontend.Components;
 using GoGameShop.Frontend.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -73,9 +74,12 @@ app.UseAntiforgery();
 
 app.MapGet(
     "/login",
-    () =>
+    (string? returnUrl) =>
         Results.Challenge(
-            new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/" },
+            new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+            {
+                RedirectUri = returnUrl ?? "/"
+            },
             [OpenIdConnectDefaults.AuthenticationScheme]
         )
 );

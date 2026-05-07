@@ -1,3 +1,13 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+<div class="layout">
+    <header>
+        <NavMenu />
+    </header>
+    <main class="site-main">
+        @Body
+    </main>
+    <footer class="site-footer">
+        &copy; @DateTime.Now.Year GoGameShop
+    </footer>
+</div>

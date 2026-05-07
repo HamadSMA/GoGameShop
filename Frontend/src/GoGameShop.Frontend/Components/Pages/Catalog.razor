@@ -1,0 +1,65 @@
+@page "/catalog"
+@attribute [Authorize(Roles = "Admin")]
+@attribute [StreamRendering]
+@inject GamesClient Games
+
+<PageTitle>Catalog</PageTitle>
+
+<h1>Catalog</h1>
+
+<div class="form-actions" style="margin-bottom:1rem">
+    <a href="/games/new" class="btn-primary">+ New Game</a>
+</div>
+
+<form id="catalogSearch" method="get" action="/catalog" class="search-bar">
+    <input id="searchInput" type="text" name="name" value="@name" placeholder="Search games..." />
+    <button type="submit" class="btn-primary">Search</button>
+    <button type="button" onclick="clearSearch()" class="btn-secondary">Clear</button>
+</form>
+
+@if (gamesPage is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <table class="catalog-table">
+        <thead>
+            <tr>
+                <th>Name</th><th>Genre</th><th>Rating</th>
+                <th>Price</th><th>Release</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var game in gamesPage.Games)
+            {
+                <tr>
+                    <td>@game.Name</td>
+                    <td>@game.Genre</td>
+                    <td>@game.Rating</td>
+                    <td>$@game.Price</td>
+                    <td>@game.ReleaseDate.ToShortDateString()</td>
+                    <td class="actions">
+                        <a href="/games/@game.Id/edit">Edit</a>
+                        <a href="/games/@game.Id/delete">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <Pagination CurrentPage="page"
+                TotalPages="gamesPage.TotalPages"
+                BaseUrl="/catalog"
+                Query="@(string.IsNullOrEmpty(name) ? null : $"name={Uri.EscapeDataString(name)}")" />
+}
+
+@code {
+    [SupplyParameterFromQuery] public int     page { get; set; } = 1;
+    [SupplyParameterFromQuery] public string? name { get; set; }
+
+    private GamesPageDto? gamesPage;
+
+    protected override async Task OnInitializedAsync() =>
+        gamesPage = await Games.GetGamesAsync(page, name: name);
+}

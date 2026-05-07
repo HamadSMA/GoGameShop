@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using GoGameShop.Frontend.Models;
 
@@ -45,8 +46,8 @@ public class GamesClient(HttpClient http)
             { new StringContent(model.Name), "name" },
             { new StringContent(model.GenreId.ToString()), "genreId" },
             { new StringContent(model.RatingId.ToString()), "ratingId" },
-            { new StringContent(model.Price.ToString()), "price" },
-            { new StringContent(model.ReleaseDate.ToString()), "releaseDate" },
+            { new StringContent(model.Price.ToString(CultureInfo.InvariantCulture)), "price" },
+            { new StringContent(model.ReleaseDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), "releaseDate" },
             { new StringContent(model.Description), "description" },
         };
 

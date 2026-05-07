@@ -1,0 +1,45 @@
+@page "/games/{id:guid}/delete"
+@attribute [Authorize(Roles = "Admin")]
+@inject GamesClient Games
+@inject NavigationManager Nav
+
+<PageTitle>Delete Game</PageTitle>
+
+<form method="post" @formname="delete-confirm">
+    <AntiforgeryToken />
+    <input type="hidden" name="Form.Confirmed" value="true" />
+    @if (game is not null)
+    {
+        <div class="modal-overlay">
+            <div class="modal-box">
+                <h2>Delete "@game.Name"?</h2>
+                <p>This action cannot be undone.</p>
+                <div class="form-actions">
+                    <button type="submit" class="btn-danger">Delete</button>
+                    <a href="/catalog" class="btn-secondary">Cancel</a>
+                </div>
+            </div>
+        </div>
+    }
+</form>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromForm(FormName = "delete-confirm")] public DeleteForm? Form { get; set; }
+
+    private GameDetailsDto? game;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Form?.Confirmed == true)
+        {
+            await Games.DeleteGameAsync(Id);
+            Nav.NavigateTo("/catalog", forceLoad: true);
+            return;
+        }
+
+        game = await Games.GetGameAsync(Id);
+    }
+
+    public class DeleteForm { public bool Confirmed { get; set; } }
+}

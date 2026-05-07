@@ -1,0 +1,20 @@
+@if (TotalPages > 1)
+{
+    <div class="pagination">
+        @for (var i = 1; i <= TotalPages; i++)
+        {
+            var page = i;
+            var url = string.IsNullOrEmpty(Query)
+                ? $"{BaseUrl}?page={page}"
+                : $"{BaseUrl}?page={page}&{Query}";
+            <a href="@url" class="@(page == CurrentPage ? "active" : "")">@(page)</a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int     CurrentPage { get; set; }
+    [Parameter, EditorRequired] public int     TotalPages  { get; set; }
+    [Parameter, EditorRequired] public string  BaseUrl     { get; set; } = default!;
+    [Parameter]                 public string? Query       { get; set; }
+}

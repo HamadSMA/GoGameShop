@@ -1,0 +1,60 @@
+@page "/game/{id:guid}"
+@attribute [Authorize]
+@inject GamesClient Games
+@inject BasketState Basket
+@inject NavigationManager Nav
+
+<PageTitle>@(game?.Name ?? "Game")</PageTitle>
+
+@if (game is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="game-detail">
+        <img src="@game.ImageUri" alt="@game.Name" />
+        <div class="game-info">
+            <h1>@game.Name</h1>
+            <p>@game.Description</p>
+            <p><strong>Price:</strong> $@game.Price</p>
+            <p><strong>Release:</strong> @game.ReleaseDate.ToString("MMMM d, yyyy")</p>
+
+            @if (added)
+            {
+                <p class="success">Added to cart!</p>
+            }
+
+            <form method="post" @formname="add-to-cart">
+                <AntiforgeryToken />
+                <input type="hidden" name="Form.GameId" value="@game.Id" />
+                <button type="submit" class="btn-primary">Add to Cart</button>
+            </form>
+
+            <AuthorizeView Roles="Admin">
+                <a href="/games/@game.Id/edit" class="btn-secondary">Edit</a>
+            </AuthorizeView>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromForm(FormName = "add-to-cart")] public AddToCartForm? Form { get; set; }
+
+    private GameDetailsDto? game;
+    private bool added;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Form?.GameId is Guid gameId)
+        {
+            await Basket.AddItemAsync(gameId);
+            added = true;
+        }
+
+        game = await Games.GetGameAsync(Id);
+    }
+
+    public class AddToCartForm { public Guid GameId { get; set; } }
+}
