@@ -178,6 +178,16 @@ GoGameShop/
 │           ├── Auth/                     # Authentication helpers
 │           │   ├── CookieOidcRefresher.cs    # Proactive access-token refresh on cookie validation
 │           │   └── ApiAuthorizationHandler.cs # DelegatingHandler — attaches Bearer token to API calls
+│           ├── Clients/                  # Typed HttpClient wrappers for each API resource
+│           │   ├── GamesClient.cs        # GET/POST/PUT/DELETE /games
+│           │   ├── LookupClient.cs       # GET /genres, GET /ratings
+│           │   └── ServerBasketClient.cs # GET/PUT /baskets/{customerId}
+│           ├── Models/                   # Frontend DTOs and form models
+│           │   ├── GameModels.cs         # GamesPageDto, GameSummaryDto, GameDetailsDto, GameFormModel
+│           │   ├── BasketModels.cs       # BasketDto, BasketItemDto, UpsertBasket* DTOs
+│           │   └── LookupModels.cs       # GenreDto, RatingDto
+│           ├── Services/                 # Scoped application services
+│           │   └── BasketState.cs        # Per-request basket cache with OnChange notification
 │           ├── Components/               # Razor components
 │           │   ├── Layout/               # MainLayout.razor
 │           │   ├── Pages/                # Home.razor, Error.razor, NotFound.razor

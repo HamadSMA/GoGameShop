@@ -218,3 +218,168 @@ Component calls Http.GetFromJsonAsync(...)
 ```
 
 The handler is registered on a named or typed `HttpClient` in `Program.cs`. Once wired up, any service that injects that `HttpClient` gets authenticated calls for free — no per-service token lookup needed.
+
+---
+
+### Typed HTTP Clients — `GamesClient`, `LookupClient`, `ServerBasketClient`
+
+**The problem:**
+The frontend needs to call multiple API endpoints — games, genres, ratings, baskets. Injecting a raw `HttpClient` everywhere and repeating URL construction, JSON deserialization, and error handling in each component is noisy and error-prone.
+
+**What it does:**
+A **typed HTTP client** is a plain class that takes `HttpClient` as a constructor parameter. `IHttpClientFactory` creates and manages the underlying `HttpClient` instance; the typed class just uses it. Each client in `Clients/` owns one API resource:
+
+```csharp
+public class GamesClient(HttpClient http)
+{
+    public async Task<GamesPageDto> GetGamesAsync(int page = 1, int pageSize = 5, string? name = null)
+    {
+        var url = $"games?pageNumber={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(name))
+            url += $"&name={Uri.EscapeDataString(name)}";
+        return await http.GetFromJsonAsync<GamesPageDto>(url) ?? new(0, []);
+    }
+    // CreateGameAsync, UpdateGameAsync, DeleteGameAsync...
+}
+```
+
+`GamesClient` also handles the multipart form-data requirement for create/update — it builds `MultipartFormDataContent` from a `GameFormModel` (including the optional image file stream) so components never have to construct it directly.
+
+**Registration in `Program.cs`:**
+```csharp
+builder.Services.AddHttpClient<GamesClient>(c => c.BaseAddress = new Uri(apiBase))
+    .AddHttpMessageHandler<ApiAuthorizationHandler>();
+```
+
+`AddHttpClient<TClient>()` registers the typed client and its `HttpClient` with `IHttpClientFactory`. The `BaseAddress` is set once here — all relative URLs inside the client resolve against it. `.AddHttpMessageHandler<ApiAuthorizationHandler>()` chains the Bearer token injector onto every call made through that client. The same pattern is repeated for `LookupClient` and `ServerBasketClient`.
+
+**`ApiAuthorizationHandler` must be `Transient`:**
+```csharp
+builder.Services.AddTransient<ApiAuthorizationHandler>();
+```
+`IHttpClientFactory` manages handler lifetimes independently — it requires handlers to be transient so it can control how they are reused and pooled. Registering as `Scoped` or `Singleton` causes a runtime error.
+
+---
+
+### Frontend Models — Records vs Mutable Class
+
+**The problem:**
+The frontend needs two kinds of types: shapes that represent API responses (read from JSON, never mutated), and a shape that Blazor's `EditForm` can bind to (needs settable properties).
+
+**What it does:**
+All API response types are **records** — immutable by default, with positional constructors that match the JSON field names:
+
+```csharp
+public record GameSummaryDto(Guid Id, string Name, string Genre, decimal Price, ...);
+public record BasketItemDto(Guid Id, string Name, decimal Price, int Quantity, string ImageUri);
+```
+
+Records support `with` expressions, which create a modified copy without mutating the original — useful in `BasketState` for updating a quantity inline:
+
+```csharp
+items.Select(i => i.Id == gameId ? i with { Quantity = i.Quantity + 1 } : i)
+```
+
+`GameFormModel` is the exception — a **mutable class** with `{ get; set; }` properties. Blazor's `EditForm` / two-way `@bind` requires settable properties; records' init-only setters aren't enough for form binding.
+
+---
+
+### `BasketState` — Scoped In-Memory Cache
+
+**The problem:**
+Multiple components on the same page may need the basket: a navbar shows item count, a basket page shows the full list. Without coordination, each component would fire its own API call — wasted round-trips for the same data within a single render.
+
+**What it does:**
+`BasketState` is a **scoped service** (one instance per HTTP request). The first call to `GetBasketAsync()` fetches the basket from the API and caches it in `_cache`. Every subsequent call within the same request returns the cached value:
+
+```csharp
+public async Task<BasketDto?> GetBasketAsync()
+{
+    if (UserId == Guid.Empty) return null;
+    _cache ??= await basketClient.GetBasketAsync(UserId);  // fetch once, cache for this request
+    return _cache;
+}
+```
+
+Any mutation (add, update, remove) calls `Sync()`, which writes the change to the API, clears `_cache` (so the next read fetches fresh data), and fires `OnChange`:
+
+```csharp
+private async Task Sync(IEnumerable<UpsertBasketItemDto> items)
+{
+    await basketClient.UpsertBasketAsync(UserId, items);
+    _cache = null;
+    OnChange?.Invoke();
+}
+```
+
+`OnChange` is an `event Action?` — components subscribe to it in `OnInitialized` and call `StateHasChanged()` in the handler so their UI updates (e.g., a basket count badge in the navbar refreshes immediately after an add).
+
+**User identity:**
+```csharp
+private Guid UserId =>
+    Guid.TryParse(
+        httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier),
+        out var id) ? id : Guid.Empty;
+```
+
+`ClaimTypes.NameIdentifier` maps to Keycloak's `sub` claim — the user's unique ID in the realm. Because `MapInboundClaims = false` is set in the OIDC options, the claim name stays as the short string `"sub"` rather than a long Microsoft URL. `ClaimTypes.NameIdentifier` resolves to `"sub"` in that context, matching correctly.
+
+---
+
+### `Program.cs` — The Full Auth Stack
+
+**The problem:**
+Wiring cookie + OIDC authentication in one `Program.cs` involves several options that interact with each other. Getting one wrong (e.g., forgetting `SaveTokens`, wrong `ResponseType`, wrong `SignInScheme`) silently breaks different parts of the flow.
+
+**What it does — annotated:**
+```csharp
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme) // cookie is the default scheme
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login"; // unauthenticated requests redirect here
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            // fires on every authenticated request; used to proactively refresh the token
+            var refresher = context.HttpContext.RequestServices.GetRequiredService<CookieOidcRefresher>();
+            await refresher.ValidateOrRefreshCookieAsync(context, OpenIdConnectDefaults.AuthenticationScheme);
+        };
+    })
+    .AddOpenIdConnect(options =>
+    {
+        options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme; // after OIDC login, store result in the cookie
+        options.MetadataAddress = kc["MetadataAddress"]!; // OIDC discovery document
+        options.ClientId = kc["ClientId"];
+        options.ClientSecret = kc["ClientSecret"];
+        options.ResponseType = OpenIdConnectResponseType.Code; // authorization code flow
+        options.RequireHttpsMetadata = false; // local dev only — Keycloak runs on HTTP
+        options.SaveTokens = true; // persist access + refresh tokens into the cookie properties
+        options.MapInboundClaims = false; // keep claim names as-is ("sub", "role", not Microsoft URLs)
+        options.Scope.Clear(); // clear defaults (which include unwanted scopes)
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+        options.Scope.Add("gogameshop_api.all"); // the custom API scope
+        options.TokenValidationParameters.RoleClaimType = "role"; // matches Keycloak's remapped claim
+    });
+```
+
+**`/login` and `/logout` endpoints:**
+```csharp
+app.MapGet("/login", () =>
+    Results.Challenge(
+        new AuthenticationProperties { RedirectUri = "/" },
+        [OpenIdConnectDefaults.AuthenticationScheme]
+    ));
+```
+`Results.Challenge()` with the OIDC scheme triggers the redirect to Keycloak's login page. `RedirectUri` is where Keycloak sends the user after a successful login.
+
+```csharp
+app.MapPost("/logout", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    await ctx.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme,
+        new AuthenticationProperties { RedirectUri = "/" });
+}).RequireAuthorization();
+```
+Two sign-outs are required: the first clears the local session cookie; the second hits Keycloak's end-session endpoint, invalidating the Keycloak session so the user can't silently re-authenticate without entering credentials again. Order matters — cookie first, then OIDC.
