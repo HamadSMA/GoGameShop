@@ -115,3 +115,106 @@ The `postman` client in the same realm allows Postman to authenticate against th
 ```
 
 `MetadataAddress` is the OIDC discovery document — the middleware fetches it at startup to find the authorization endpoint, token endpoint, and JWKS URI automatically. This is the same discovery document approach the API uses for JWT validation, just consumed by the OIDC middleware instead of the JWT bearer middleware.
+
+---
+
+### Token Storage in Static SSR — The Cookie Session
+
+**The problem:**
+In a browser-hosted SPA, the access token lives in `localStorage` or `sessionStorage` and gets attached to fetch calls by JavaScript. In Static SSR there's no persistent JavaScript — every request is a fresh HTTP round-trip. The token has to travel with the request some other way.
+
+**What it does:**
+ASP.NET Core's cookie authentication middleware stores the access token, refresh token, and expiry inside the **encrypted session cookie**. The cookie travels with every request automatically (the browser sends it), the middleware decrypts it and reconstructs the principal, and the token is available via `HttpContext.GetTokenAsync("access_token")`.
+
+The cookie is encrypted with ASP.NET Core Data Protection — the browser only ever sees opaque bytes, never the raw token. This is why it's safe: the token never touches browser storage or JavaScript.
+
+**The chain:**
+1. OIDC middleware completes the authorization code exchange and receives the access + refresh tokens
+2. Cookie middleware saves them into the encrypted cookie and sends it to the browser
+3. On every subsequent request the browser sends the cookie; middleware decrypts it and restores `HttpContext.User` and the stored tokens
+4. Components call `HttpContext.GetTokenAsync("access_token")` to retrieve the current access token
+
+---
+
+### `CookieOidcRefresher` — Proactive Token Refresh
+
+**The problem:**
+Access tokens are short-lived (typically 5–15 minutes). The session cookie lives much longer (days or weeks). Without intervention, the access token inside the cookie quietly expires while the session cookie is still valid — and the next API call with that stale token gets a `401`. The user has a valid session but all authenticated requests fail.
+
+**What it does:**
+`CookieOidcRefresher` is a service called from the cookie authentication's `OnValidatePrincipal` event. Every time a request arrives and the cookie middleware validates the cookie, this class checks whether the access token expires within the next 5 minutes. If it does, it proactively hits the token endpoint directly (`grant_type=refresh_token`) to get a fresh access token before the current request continues.
+
+```csharp
+// Within 5 minutes of expiry → refresh now
+if (DateTimeOffset.UtcNow < expiresAt - TimeSpan.FromMinutes(5))
+    return; // still valid, nothing to do
+
+// Call the token endpoint directly (backchannel — server-to-server)
+using var response = await opts.Backchannel.PostAsync(tokenEndpoint,
+    new FormUrlEncodedContent(new Dictionary<string, string>
+    {
+        ["grant_type"]    = "refresh_token",
+        ["client_id"]     = opts.ClientId!,
+        ["client_secret"] = opts.ClientSecret!,
+        ["refresh_token"] = context.Properties.GetTokenValue("refresh_token")!,
+    }), cancellationToken);
+
+if (!response.IsSuccessStatusCode)
+{
+    context.RejectPrincipal(); // refresh failed → force re-login
+    return;
+}
+
+// Update the stored tokens and signal the cookie to be reissued
+context.Properties.UpdateTokenValue("access_token", message.AccessToken!);
+context.Properties.UpdateTokenValue("refresh_token", message.RefreshToken!);
+context.Properties.UpdateTokenValue("expires_at", newExpiry.ToString("o"));
+context.ShouldRenew = true; // tells the cookie middleware to reissue the cookie
+```
+
+The backchannel call (`opts.Backchannel`) uses the OIDC middleware's own `HttpClient` — it already has the token endpoint URL from the discovery document and the correct timeouts. `context.ShouldRenew = true` tells the cookie middleware to write an updated cookie in the response, so the fresh tokens replace the expiring ones.
+
+If the refresh fails (e.g. the refresh token itself has expired), `RejectPrincipal()` marks the session invalid and the next request triggers a redirect to Keycloak's login page.
+
+**Why this approach:**
+It's pull-based — tokens are refreshed on the request that needs them, not on a background timer. That means no background thread, no race conditions, and no wasted refreshes during idle periods. The 5-minute window gives the current request enough time to complete with the existing token even if the refresh call takes a moment.
+
+---
+
+### `ApiAuthorizationHandler` — Attaching the Bearer Token to API Calls
+
+**The problem:**
+The frontend makes HTTP calls to the `GoGameShop.Api` backend to fetch game data, the basket, etc. The API's endpoints are protected — they require a `Bearer` token in the `Authorization` header. The question is: where does that token come from and how does it get onto every outgoing request without duplicating the lookup in every service class?
+
+**What it does:**
+`ApiAuthorizationHandler` is a **DelegatingHandler** — .NET's name for HttpClient middleware. A DelegatingHandler wraps an inner handler and runs code before and after every HTTP call made through a registered `HttpClient`. This one reads the access token from the current request's cookie session and sets the `Authorization` header:
+
+```csharp
+public class ApiAuthorizationHandler(IHttpContextAccessor httpContextAccessor)
+    : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var token = await httpContextAccessor.HttpContext?.GetTokenAsync("access_token");
+        if (!string.IsNullOrEmpty(token))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return await base.SendAsync(request, cancellationToken); // pass through to the real call
+    }
+}
+```
+
+**`IHttpContextAccessor` — why it's needed:**
+In Static SSR, components run on the server during the request, but `HttpClient` instances are singletons shared across requests — they don't inherently know which request's session to read from. `IHttpContextAccessor` provides access to the ambient `HttpContext` for the current request, bridging the gap between the singleton `HttpClient` and the per-request cookie session.
+
+**How it fits into the chain:**
+```
+Component calls Http.GetFromJsonAsync(...)
+  → ApiAuthorizationHandler.SendAsync()        // reads token from HttpContext, sets header
+    → [inner handler — actual HTTP call]
+      → GoGameShop.Api (receives Bearer token)
+```
+
+The handler is registered on a named or typed `HttpClient` in `Program.cs`. Once wired up, any service that injects that `HttpClient` gets authenticated calls for free — no per-service token lookup needed.

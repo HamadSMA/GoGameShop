@@ -175,6 +175,9 @@ GoGameShop/
 ├── Frontend/
 │   └── src/
 │       └── GoGameShop.Frontend/          # Blazor Static SSR frontend (net10)
+│           ├── Auth/                     # Authentication helpers
+│           │   ├── CookieOidcRefresher.cs    # Proactive access-token refresh on cookie validation
+│           │   └── ApiAuthorizationHandler.cs # DelegatingHandler — attaches Bearer token to API calls
 │           ├── Components/               # Razor components
 │           │   ├── Layout/               # MainLayout.razor
 │           │   ├── Pages/                # Home.razor, Error.razor, NotFound.razor
