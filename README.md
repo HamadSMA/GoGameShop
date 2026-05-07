@@ -24,7 +24,7 @@ scalable foundation.
 - **Framework:** ASP.NET Core 10.0 (Minimal APIs)
 - **Database:** SQLite (PostgreSQL migration planned)
 - **ORM:** Entity Framework Core 10.0
-- **Frontend:** Responsive Frontend (Planned)
+- **Frontend:** Blazor (Static SSR)
 - **Payments:** Stripe Integration (Planned)
 - **Package Manager:** NuGet (via `dotnet` CLI)
 
@@ -61,20 +61,26 @@ scalable foundation.
    docker compose up -d
    ```
    The Keycloak admin console is available at `http://localhost:8080` (bootstrap credentials: `admin` / `admin`). The
-   committed `gogameshop-realm.json` can be imported via *Realm settings → Action → Partial import* to set up the realm,
-   roles, and clients.
+   committed `gogameshop-realm.json` can be imported via *Realm settings → Action → Partial import* to restore the realm,
+   roles, and clients (including `gogameshop-api`, `gogameshop-frontend`, and `postman`).
 
-5. **Run the application:**
+5. **Run the API:**
    ```bash
    dotnet run --project Backend/src/GoGameShop.Api
    ```
-   The API will be available at `http://localhost:5078` (or the port specified in `appsettings.json` /
-   `launchSettings.json`).
+   The API will be available at `http://localhost:5002`.
+
+6. **Run the frontend:**
+   ```bash
+   dotnet run --project Frontend/src/GoGameShop.Frontend
+   ```
+   The frontend will be available at `http://localhost:5003`.
 
 ## Scripts & Commands
 
 - **Build:** `dotnet build`
-- **Run:** `dotnet run --project Backend/src/GoGameShop.Api`
+- **Run API:** `dotnet run --project Backend/src/GoGameShop.Api`
+- **Run frontend:** `dotnet run --project Frontend/src/GoGameShop.Frontend`
 - **Add Migration:** `dotnet ef migrations add <MigrationName> --project Backend/src/GoGameShop.Api`
 - **Update Database:** `dotnet ef database update --project Backend/src/GoGameShop.Api`
 
@@ -89,6 +95,13 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 - **Authentication:Schemes:Keycloak:** JWT bearer options for the named `Keycloak` scheme. `Authority` is the Keycloak
   realm URL and `ValidAudience` is the expected `aud` claim (the Keycloak client ID). .NET 8+ binds these onto
   `JwtBearerOptions` automatically — no `builder.Configuration.Bind(...)` glue needed.
+
+### Frontend (`Frontend/src/GoGameShop.Frontend/appsettings.json`)
+
+- **ApiBaseUrl:** Base URL of the backend API (`http://localhost:5002`).
+- **Keycloak:MetadataAddress:** OIDC discovery document URL for the `gogameshop` realm.
+- **Keycloak:ClientId:** The frontend's Keycloak client ID (`gogameshop-frontend`).
+- **Keycloak:ClientSecret:** The frontend's client secret (confidential client).
 
 ## API Endpoints
 
@@ -159,6 +172,19 @@ GoGameShop/
 │   │       ├── appsettings.Development.json
 │   │       └── Program.cs                # Application entry point
 │   └── gogameshop.http                   # Sample HTTP requests for testing
+├── Frontend/
+│   └── src/
+│       └── GoGameShop.Frontend/          # Blazor Static SSR frontend (net10)
+│           ├── Components/               # Razor components
+│           │   ├── Layout/               # MainLayout.razor
+│           │   ├── Pages/                # Home.razor, Error.razor, NotFound.razor
+│           │   ├── App.razor             # Root HTML document shell
+│           │   ├── Routes.razor          # Router component
+│           │   └── _Imports.razor        # Global component usings
+│           ├── wwwroot/                  # Static assets (app.css)
+│           ├── Properties/               # launchSettings.json (port 5003)
+│           ├── appsettings.json          # ApiBaseUrl, Keycloak client config
+│           └── Program.cs               # Application entry point
 ├── postman/                              # Postman workspace
 │   ├── collections/                      # Saved API collections
 │   ├── environments/                     # Environment variables

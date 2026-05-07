@@ -22,3 +22,4 @@
 | Keycloak                        | [notes/10-keycloak.md](notes/10-keycloak.md)                           |
 | Postman                         | [notes/11-postman.md](notes/11-postman.md)                             |
 | OAuth 2.0 and OpenID Connect    | [notes/12-oauth-oidc.md](notes/12-oauth-oidc.md)                       |
+| Blazor Frontend                 | [notes/13-blazor-frontend.md](notes/13-blazor-frontend.md)             |
