@@ -661,6 +661,87 @@ public class FileUploader(IWebHostEnvironment environment, IHttpContextAccessor 
 `IHttpContextAccessor` stores the `HttpContext` in an `AsyncLocal<T>` — a slot that flows with the current async call chain. As long as you're within the same request, `.HttpContext` returns the right context. Outside of a request (e.g., in a background job) it returns `null`.
 
 ---
+### Project Structure
+
+```text
+GoGameShop/
+├── Backend/
+│   ├── localinfra/                       # Local development infrastructure
+│   │   ├── docker-compose.yml            # Keycloak container definition
+│   │   └── gogameshop-realm.json         # Keycloak realm export (roles, clients, settings)
+│   ├── src/
+│   │   └── GoGameShop.Api/               # Main API project
+│   │       ├── Data/                     # EF Core DbContext, seeding, and migrations
+│   │       │   ├── Migrations/           # Auto-generated EF Core migration files
+│   │       │   ├── DataExtensions.cs     # DB initialization and seed data logic
+│   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
+│   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
+│   │       ├── Shared/                   # Cross-cutting concerns
+│   │       │   ├── Authorization/        # Policies, Roles, ClaimTypes, Schemes, AuthorizationExtensions, KeycloakClaimsTransformer
+│   │       │   ├── ErrorHandling/        # GlobalErrorHandler (IExceptionHandler)
+│   │       │   ├── FileUpload/           # FileUploader service and FileUploadResult
+│   │       │   └── Timing/               # RequestTimingMiddleware (kept for reference)
+│   │       ├── Features/                 # Vertical slices by feature
+│   │       │   ├── Games/
+│   │       │   │   ├── Constants/        # Endpoint name constants
+│   │       │   │   ├── CreateGame/       # POST /games (endpoint + DTOs)
+│   │       │   │   ├── DeleteGame/       # DELETE /games/{id}
+│   │       │   │   ├── GetGame/          # GET /games/{id} (endpoint + DTOs)
+│   │       │   │   ├── GetGames/         # GET /games (endpoint + DTOs)
+│   │       │   │   ├── UpdateGame/       # PUT /games/{id} (endpoint + DTOs)
+│   │       │   │   └── GamesEndpoints.cs # Maps all /games routes
+│   │       │   ├── Baskets/
+│   │       │   │   ├── Authorization/    # BasketAuthorizationHandler (resource-based auth)
+│   │       │   │   ├── GetBasket/        # GET /baskets/{userId} (endpoint + DTOs)
+│   │       │   │   ├── UpsertBasket/     # PUT /baskets/{userId} (endpoint + DTOs)
+│   │       │   │   └── BasketEndpoints.cs
+│   │       │   ├── Genres/               # GET /genres
+│   │       │   └── Ratings/              # GET /ratings
+│   │       ├── Models/                   # Domain entities (Game, Genre, Rating)
+│   │       ├── Properties/               # launchSettings.json (port 5002)
+│   │       ├── GlobalUsings.cs           # Global namespace imports
+│   │       ├── appsettings.json
+│   │       ├── appsettings.Development.json
+│   │       └── Program.cs
+│   └── gogameshop.http                   # Sample HTTP requests for manual testing
+├── Frontend/
+│   └── src/
+│       └── GoGameShop.Frontend/          # Blazor Static SSR frontend (net10, port 5003)
+│           ├── Auth/
+│           │   ├── CookieOidcRefresher.cs    # Proactive access-token refresh on cookie validation
+│           │   └── ApiAuthorizationHandler.cs # DelegatingHandler — attaches Bearer token to API calls
+│           ├── Clients/                  # Typed HttpClient wrappers
+│           │   ├── GamesClient.cs        # GET/POST/PUT/DELETE /games
+│           │   ├── LookupClient.cs       # GET /genres, GET /ratings
+│           │   └── ServerBasketClient.cs # GET/PUT /baskets/{customerId}
+│           ├── Models/
+│           │   ├── GameModels.cs         # GamesPageDto, GameSummaryDto, GameDetailsDto, GameFormModel
+│           │   ├── BasketModels.cs       # BasketDto, BasketItemDto, UpsertBasket* DTOs
+│           │   └── LookupModels.cs       # GenreDto, RatingDto
+│           ├── Services/
+│           │   └── BasketState.cs        # Per-request basket cache with OnChange notification
+│           ├── Components/
+│           │   ├── Layout/               # MainLayout.razor
+│           │   ├── Pages/                # Home.razor, Error.razor, NotFound.razor
+│           │   ├── App.razor             # Root HTML document shell
+│           │   ├── Routes.razor          # Router component
+│           │   └── _Imports.razor        # Global component usings
+│           ├── wwwroot/                  # Static assets (app.css)
+│           ├── Properties/               # launchSettings.json
+│           ├── appsettings.json          # ApiBaseUrl, Keycloak client config
+│           └── Program.cs
+├── postman/                              # Postman workspace
+│   ├── collections/
+│   ├── environments/
+│   ├── flows/
+│   ├── globals/
+│   ├── mocks/
+│   └── specs/
+└── .postman/                             # Postman backup/config
+```
+
+---
+
 ### launchSettings.json
 
 **The problem:**

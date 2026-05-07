@@ -133,82 +133,13 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 
 ```text
 GoGameShop/
-├── Backend/
-│   ├── localinfra/                       # Local development infrastructure
-│   │   ├── docker-compose.yml            # Keycloak container definition
-│   │   └── gogameshop-realm.json         # Keycloak realm export (roles, clients, settings)
-│   ├── src/
-│   │   └── GoGameShop.Api/               # Main API project
-│   │       ├── Data/                     # EF Core DbContext, seeding, and migrations
-│   │       │   ├── Migrations/           # Auto-generated EF Core migration files
-│   │       │   ├── DataExtensions.cs     # DB initialization and seed data logic
-│   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
-│   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
-│   │       ├── Shared/                   # Cross-cutting concerns
-│   │       │   ├── Authorization/        # Policies, Roles, ClaimTypes, Schemes, AuthorizationExtensions (Add* extension methods), and KeycloakClaimsTransformer (splits the OAuth `scope` string into per-scope claims)
-│   │       │   ├── ErrorHandling/        # GlobalErrorHandler (IExceptionHandler)
-│   │       │   ├── FileUpload/           # FileUploader service and FileUploadResult
-│   │       │   └── Timing/               # RequestTimingMiddleware (custom middleware, kept for reference)
-│   │       ├── Features/                 # Vertical slices by feature
-│   │       │   ├── Games/
-│   │       │   │   ├── Constants/        # Endpoint name constants
-│   │       │   │   ├── CreateGame/       # POST /games (endpoint + DTOs)
-│   │       │   │   ├── DeleteGame/       # DELETE /games/{id} (endpoint)
-│   │       │   │   ├── GetGame/          # GET /games/{id} (endpoint + DTOs)
-│   │       │   │   ├── GetGames/         # GET /games (endpoint + DTOs)
-│   │       │   │   ├── UpdateGame/       # PUT /games/{id} (endpoint + DTOs)
-│   │       │   │   └── GamesEndpoints.cs # Maps all /games routes
-│   │       │   ├── Baskets/
-│   │       │   │   ├── Authorization/    # BasketAuthorizationHandler (resource-based auth)
-│   │       │   │   ├── GetBasket/        # GET /baskets/{userId} (endpoint + DTOs)
-│   │       │   │   ├── UpsertBasket/     # PUT /baskets/{userId} (endpoint + DTOs)
-│   │       │   │   └── BasketEndpoints.cs # Maps all /baskets routes
-│   │       │   ├── Genres/               # GET /genres (endpoint + DTOs)
-│   │       │   └── Ratings/              # GET /ratings (endpoint + DTOs)
-│   │       ├── Models/                   # Domain entities (Game, Genre, Rating)
-│   │       ├── Properties/               # launchSettings.json
-│   │       ├── GlobalUsings.cs           # Global namespace imports
-│   │       ├── appsettings.json          # App configuration
-│   │       ├── appsettings.Development.json
-│   │       └── Program.cs                # Application entry point
-│   └── gogameshop.http                   # Sample HTTP requests for testing
-├── Frontend/
-│   └── src/
-│       └── GoGameShop.Frontend/          # Blazor Static SSR frontend (net10)
-│           ├── Auth/                     # Authentication helpers
-│           │   ├── CookieOidcRefresher.cs    # Proactive access-token refresh on cookie validation
-│           │   └── ApiAuthorizationHandler.cs # DelegatingHandler — attaches Bearer token to API calls
-│           ├── Clients/                  # Typed HttpClient wrappers for each API resource
-│           │   ├── GamesClient.cs        # GET/POST/PUT/DELETE /games
-│           │   ├── LookupClient.cs       # GET /genres, GET /ratings
-│           │   └── ServerBasketClient.cs # GET/PUT /baskets/{customerId}
-│           ├── Models/                   # Frontend DTOs and form models
-│           │   ├── GameModels.cs         # GamesPageDto, GameSummaryDto, GameDetailsDto, GameFormModel
-│           │   ├── BasketModels.cs       # BasketDto, BasketItemDto, UpsertBasket* DTOs
-│           │   └── LookupModels.cs       # GenreDto, RatingDto
-│           ├── Services/                 # Scoped application services
-│           │   └── BasketState.cs        # Per-request basket cache with OnChange notification
-│           ├── Components/               # Razor components
-│           │   ├── Layout/               # MainLayout.razor
-│           │   ├── Pages/                # Home.razor, Error.razor, NotFound.razor
-│           │   ├── App.razor             # Root HTML document shell
-│           │   ├── Routes.razor          # Router component
-│           │   └── _Imports.razor        # Global component usings
-│           ├── wwwroot/                  # Static assets (app.css)
-│           ├── Properties/               # launchSettings.json (port 5003)
-│           ├── appsettings.json          # ApiBaseUrl, Keycloak client config
-│           └── Program.cs               # Application entry point
-├── postman/                              # Postman workspace
-│   ├── collections/                      # Saved API collections
-│   ├── environments/                     # Environment variables
-│   ├── flows/
-│   ├── globals/
-│   ├── mocks/
-│   └── specs/
-├── .postman/                             # Postman backup/config
-├── LICENSE                               # MIT License
-└── README.md                             # Project documentation
+├── Backend/       # ASP.NET Core Minimal API
+├── Frontend/      # Blazor Static SSR frontend
+├── postman/       # Postman workspace (collections, environments)
+└── .postman/      # Postman backup/config
 ```
+
+Full annotated structure: [notes/01-project-setup.md](notes/01-project-setup.md#project-structure)
 
 ## Tests
 
