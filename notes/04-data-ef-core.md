@@ -286,26 +286,40 @@ A fresh database is empty. Some data — reference lookups like genres and age r
 
 **In code — `DataExtensions.cs`:**
 ```csharp
-private static async Task SeedDbAsync(this WebApplication app)
+public static async Task InitializeDbAsync(this WebApplication app)
 {
+    if (Environment.GetEnvironmentVariable("ASPNETCORE_APIDESCRIPTION_GENERATE") is not null)
+        return; // skip DB init during OpenAPI generation at build time
+
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<GoGameShopContext>();
 
-    if (!dbContext.Genres.Any())  // Only seed if the table is empty
+    if (!dbContext.Genres.Any())
     {
-        dbContext.Genres.AddRange(
-            new Genre { Name = "Action" },
-            new Genre { Name = "RPG" },
-            // ...
-        );
+        dbContext.Genres.AddRange(new Genre { Name = "Action" }, /* ... */);
     }
-    await dbContext.SaveChangesAsync();
+    await dbContext.SaveChangesAsync(); // commit genres/ratings before seeding games
+
+    if (!dbContext.Games.Any())
+    {
+        var action = dbContext.Genres.First(g => g.Name == "Action"); // resolve by name
+        dbContext.Games.AddRange(new Game { Genre = action, /* ... */ });
+        await dbContext.SaveChangesAsync();
+    }
 }
 ```
 
 - `if (!dbContext.Genres.Any())` prevents re-seeding on every restart.
 - `using var scope = app.Services.CreateScope()` is needed because `DbContext` is a scoped service — it must be resolved inside a scope, not at startup level.
 - `await dbContext.SaveChangesAsync()` commits the inserts asynchronously — the thread is freed while the database write happens.
+
+**`ASPNETCORE_APIDESCRIPTION_GENERATE` — skipping initialization at build time:**
+
+The .NET SDK sets this environment variable when it runs `dotnet build` to generate the `openapi.json` file. At that point, it boots the app briefly to extract the API description — but there's no real database and no intent to seed anything. Without the guard, the startup would crash or attempt a pointless DB write. The condition must be `is not null` (skip when the variable is set), not `is null`.
+
+**Two-phase seeding — why the order matters:**
+
+Games have foreign keys to genres and ratings — they can't be inserted until those rows exist in the database with their assigned IDs. Calling `SaveChangesAsync()` after seeding genres and ratings commits those rows and assigns their GUIDs. Then `dbContext.Genres.First(g => g.Name == "Action")` returns the already-tracked in-memory object — no extra SQL round trip — and that object (with its now-populated ID) can be assigned to `Game.Genre` before the second `SaveChangesAsync()` inserts the games.
 
 ---
 ### AsNoTracking

@@ -5,8 +5,13 @@ architecture and minimal API patterns.
 
 ---
 
-> **AI Disclosure** — Source code is 100% handwritten. Commit messages are AI-generated. Docs and notes are
-> collaborative — AI-assisted, personally reviewed, and edited.
+**AI Disclosure**
+
+| Area | Split | What that means |
+|---|---|---|
+| Backend | 100% handwritten | Every line of C# typed by hand — I own all the bugs |
+| Docs & Notes | ~80% AI / ~20% me | AI drafts, I cut what's wrong and keep what helps me learn |
+| Frontend | 100% prompted | Blazor is new to me; prompted feature by feature, reviewed every file |
 
 📓 **Dev Notes** — Running notes I take while building this project. [View notes →](./NOTES.md)
 
@@ -53,7 +58,7 @@ scalable foundation.
    dotnet ef database update --project Backend/src/GoGameShop.Api
    ```
    *Note: The application calls `InitializeDbAsync()` on startup, which automatically applies migrations and seeds
-   initial data (9 genres, 3 ratings).*
+   initial data (9 genres, 3 ratings, and 12 games).*
 
 4. **Start Keycloak (local IAM server):**
    ```bash
@@ -159,7 +164,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ▓▓▓▓▓▓▓▓▓▓  Vertical Slice Architecture, REST API, CRUD, DTOs, EF Core, SQLite
 ▓▓▓▓▓▓▓▓▓▓  Middleware, HTTP Logging, Error Handling, Pagination, Search, File System, OpenAPI
 ▓▓▓▓▓▓▓▓▓▓  JWT Authentication, Role & Policy Authorization, Keycloak, OAuth 2.0, OpenID Connect
-░░░░░░░░░░  Blazor Frontend — Game Catalogue, Listings, Game Detail, Search, Basket, Keycloak Auth
+▓▓▓▓▓░░░░░  Blazor Frontend — Game Catalogue, Listings, Game Detail, Search, Basket, Keycloak Auth
 ░░░░░░░░░░  Azure App Service, PostgreSQL, Blob Storage, Key Vault, CDN, CI/CD Pipelines
 ░░░░░░░░░░  Containerization, .NET Aspire, Health Checks, Azure Container Apps
 ░░░░░░░░░░  Background Workers, Service Bus, Outbox Pattern, Stripe Payments
