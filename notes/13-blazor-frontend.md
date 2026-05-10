@@ -547,6 +547,84 @@ app.MapPost("/basket/remove", async (HttpContext ctx, BasketState basket) =>
 
 ---
 
+### Parallel Data Fetching with `Task.WhenAll`
+
+**The problem:**
+A page that needs data from two endpoints awaits them sequentially by default — the second call doesn't start until the first completes. On a page like the home page that needs both the genre list and the game results, that doubles the perceived latency for no reason.
+
+**What it does:**
+`Task.WhenAll` starts both tasks at the same time and waits for both to finish before continuing. The total time is the duration of the slower call, not the sum of both.
+
+```csharp
+protected override async Task OnInitializedAsync()
+{
+    var genresTask = Lookup.GetGenresAsync();
+    var gamesTask  = Games.GetGamesAsync(page, pageSize: 12, name: name, genre: genre);
+
+    await Task.WhenAll(genresTask, gamesTask); // both in flight simultaneously
+
+    genres    = await genresTask;  // already completed — just unwraps the result
+    gamesPage = await gamesTask;
+}
+```
+
+The second pair of `await` calls don't make new HTTP requests — `Task.WhenAll` already awaited completion, so awaiting the individual tasks just unwraps their cached results. This pattern works any time two or more API calls have no dependency on each other.
+
+---
+
+### `[SupplyParameterFromQuery]` — Multi-Filter Query String Composition
+
+**The problem:**
+A page with multiple independent URL filters (genre, name search, page number) needs to preserve all active filters when the user changes just one of them — clicking page 3 shouldn't lose the active genre, and clicking a genre shouldn't lose the current search term.
+
+**What it does:**
+Each filter maps to its own `[SupplyParameterFromQuery]` property. Links and pagination are built by composing only the non-null values into a query string:
+
+```csharp
+[SupplyParameterFromQuery(Name = "page")]  public int     page  { get; set; } = 1;
+[SupplyParameterFromQuery(Name = "genre")] public string? genre { get; set; }
+[SupplyParameterFromQuery(Name = "name")]  public string? name  { get; set; }
+
+private static string? BuildQuery(string? g, string? n)
+{
+    var parts = new[]
+    {
+        string.IsNullOrEmpty(g) ? null : $"genre={Uri.EscapeDataString(g)}",
+        string.IsNullOrEmpty(n) ? null : $"name={Uri.EscapeDataString(n)}"
+    };
+    var q = string.Join("&", parts.Where(p => p is not null));
+    return string.IsNullOrEmpty(q) ? null : q;
+}
+```
+
+Genre sidebar links call a `GenreHref(string? g)` helper that builds the full URL preserving the current search term but replacing the genre:
+
+```csharp
+private string GenreHref(string? g)
+{
+    var q = BuildQuery(g, name);
+    return string.IsNullOrEmpty(q) ? "/" : $"/?{q}";
+}
+```
+
+The `Pagination` component receives the composed query so page links carry both active filters:
+
+```razor
+<Pagination CurrentPage="page" TotalPages="gamesPage.TotalPages"
+            BaseUrl="/" Query="@BuildQuery(genre, name)" />
+```
+
+The backend receives all filters as separate query params and applies them with AND logic — each filter is only applied when non-null:
+
+```csharp
+var filtered = dbContext.Games.Where(game =>
+    (string.IsNullOrWhiteSpace(request.Name)  || EF.Functions.Like(game.Name, $"%{request.Name}%")) &&
+    (string.IsNullOrWhiteSpace(request.Genre) || game.Genre!.Name == request.Genre)
+);
+```
+
+---
+
 ### `[StreamRendering]` — Incremental HTML Delivery
 
 **The problem:**

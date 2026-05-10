@@ -114,7 +114,7 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 
 | Method   | Route         | Description                                                                                                         |
 |----------|---------------|---------------------------------------------------------------------------------------------------------------------|
-| `GET`    | `/games`      | Get a paginated, searchable list of games (supports `pageNumber`, `pageSize`, and `Name` query params)              |
+| `GET`    | `/games`      | Get a paginated, filterable list of games (supports `pageNumber`, `pageSize`, `Name`, and `Genre` query params)     |
 | `GET`    | `/games/{id}` | Get a single game by ID                                                                                             |
 | `POST`   | `/games`      | Create a new game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy       |
 | `PUT`    | `/games/{id}` | Update an existing game (accepts `multipart/form-data`; optional `ImageFile` field) — requires `AdminAccess` policy |
@@ -164,7 +164,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ▓▓▓▓▓▓▓▓▓▓  Vertical Slice Architecture, REST API, CRUD, DTOs, EF Core, SQLite
 ▓▓▓▓▓▓▓▓▓▓  Middleware, HTTP Logging, Error Handling, Pagination, Search, File System, OpenAPI
 ▓▓▓▓▓▓▓▓▓▓  JWT Authentication, Role & Policy Authorization, Keycloak, OAuth 2.0, OpenID Connect
-▓▓▓▓▓▓░░░░  Blazor Frontend — Game Catalogue, Listings, Game Detail, Search, Basket, Keycloak Auth
+▓▓▓▓▓▓▓░░░  Blazor Frontend — Game Catalogue, Listings, Game Detail, Search, Basket, Keycloak Auth
 ░░░░░░░░░░  Azure App Service, PostgreSQL, Blob Storage, Key Vault, CDN, CI/CD Pipelines
 ░░░░░░░░░░  Containerization, .NET Aspire, Health Checks, Azure Container Apps
 ░░░░░░░░░░  Background Workers, Service Bus, Outbox Pattern, Stripe Payments
