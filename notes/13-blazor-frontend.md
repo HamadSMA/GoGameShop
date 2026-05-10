@@ -383,3 +383,260 @@ app.MapPost("/logout", async (HttpContext ctx) =>
 }).RequireAuthorization();
 ```
 Two sign-outs are required: the first clears the local session cookie; the second hits Keycloak's end-session endpoint, invalidating the Keycloak session so the user can't silently re-authenticate without entering credentials again. Order matters — cookie first, then OIDC.
+
+---
+
+### `CascadingAuthenticationState` and `AuthorizeRouteView`
+
+**The problem:**
+Components like `<AuthorizeView>` and pages that declare `[Authorize]` need access to the current authentication state. But individual components have no way to look up the state on their own — they'd need a service injection in every file, and the routing layer has no built-in hook to enforce auth attributes before a page renders.
+
+**What it does:**
+`CascadingAuthenticationState` is a wrapper component placed at the root of the tree (in `App.razor`) that broadcasts a `Task<AuthenticationState>` downward as a cascading value. Any descendant can receive it with `[CascadingParameter] private Task<AuthenticationState> AuthState { get; set; }` — no injection needed.
+
+`AuthorizeRouteView` replaces `RouteView` in `Routes.razor`. Before rendering a page, it checks for `[Authorize]` or `[Authorize(Roles = "...")]` attributes. If the user doesn't meet the requirement, it redirects to the configured login path instead of rendering the page.
+
+```razor
+@* App.razor — broadcast auth state to the entire tree *@
+<CascadingAuthenticationState>
+    <Routes />
+</CascadingAuthenticationState>
+```
+
+```razor
+@* Routes.razor — enforce [Authorize] attributes at the routing layer *@
+<AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+```
+
+Without `CascadingAuthenticationState`, `AuthorizeRouteView` and `<AuthorizeView>` both throw at runtime because they can't find the cascaded `Task<AuthenticationState>`. Without `AuthorizeRouteView`, `[Authorize]` attributes on pages are silently ignored and pages render for everyone.
+
+---
+
+### `<AuthorizeView>` — Conditional Rendering by Auth State
+
+**The problem:**
+Some UI belongs only to signed-in users (the game grid, the cart badge, the logout button). Some belongs only to guests (the login link, a "sign in to browse" CTA). Hard-coding this with null checks on a service would scatter auth logic into every component.
+
+**What it does:**
+`<AuthorizeView>` renders its `<Authorized>` child content when the user is authenticated and `<NotAuthorized>` when they're not. An optional `Roles` attribute narrows it further — only users in that role see the `<Authorized>` block.
+
+```razor
+@* Home.razor — game grid for signed-in users, CTA for guests *@
+<AuthorizeView>
+    <Authorized>
+        <div class="games-grid"> ... </div>
+    </Authorized>
+    <NotAuthorized>
+        <a href="/login" class="btn-primary">Login / Register</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@* NavMenu.razor — Catalog link only for admins *@
+<AuthorizeView Roles="Admin">
+    <li><a href="/catalog">Catalog</a></li>
+</AuthorizeView>
+```
+
+`context` inside `<Authorized>` is a `AuthenticationState` — you can read claims from it: `context.User.FindFirst("email")?.Value`.
+
+---
+
+### `[Authorize]` — Page-Level Authorization
+
+**The problem:**
+`<AuthorizeView>` hides content, but it doesn't stop a user from navigating directly to a URL. A guest who knows the `/cart` URL would still see the page render.
+
+**What it does:**
+`[Authorize]` is an attribute placed on a page component. `AuthorizeRouteView` checks it before the page renders — unauthenticated users are redirected to the login path instead of reaching the component's `OnInitializedAsync` at all. `[Authorize(Roles = "Admin")]` restricts further to a specific role.
+
+```razor
+@page "/cart"
+@attribute [Authorize]          @* any signed-in user *@
+
+@page "/catalog"
+@attribute [Authorize(Roles = "Admin")]   @* admin only *@
+```
+
+This is the difference from `<AuthorizeView>`: `<AuthorizeView>` controls what's rendered inside a page that already loaded; `[Authorize]` controls whether the page loads at all.
+
+---
+
+### `[SupplyParameterFromQuery]` — Query String Parameters
+
+**The problem:**
+Pagination (`?page=2`) and search (`?name=zelda`) live in the URL query string. Parsing `HttpContext.Request.Query` manually in every component that needs them is repetitive and type-unsafe.
+
+**What it does:**
+`[SupplyParameterFromQuery]` maps a query string key to a component property automatically. Blazor reads the value from the URL, converts it to the declared type, and sets the property before `OnInitializedAsync` runs. The `Name` argument overrides the key name when it differs from the property name.
+
+```csharp
+[SupplyParameterFromQuery(Name = "page")] public int page { get; set; } = 1;
+[SupplyParameterFromQuery] public string? name { get; set; }
+```
+
+For `?page=3&name=zelda`, Blazor sets `page = 3` and `name = "zelda"` automatically. The `= 1` default applies when the key is absent from the URL.
+
+---
+
+### Form Handling in Static SSR — `@formname`, `[SupplyParameterFromForm]`, `AntiforgeryToken`
+
+**The problem:**
+Static SSR has no persistent JavaScript — all user actions go through standard HTML form POST. When a page has multiple forms (a cart page with "update quantity" and "remove item" buttons), there needs to be a way to tell the forms apart on the server and bind their posted fields to separate C# models.
+
+**What it does:**
+`@formname="foo"` gives a Razor form a name. On POST, Blazor reads a hidden field that carries this name and routes the posted values to the matching `[SupplyParameterFromForm(FormName = "foo")]` parameter. Properties on the bound model are populated from the form fields by name.
+
+`<AntiforgeryToken />` renders a hidden CSRF token field that `app.UseAntiforgery()` validates on every POST — without it, the middleware rejects the request.
+
+```razor
+<form method="post" @formname="update-qty">
+    <AntiforgeryToken />
+    <input type="hidden" name="QtyModel.GameId" value="@item.Id" />
+    <select name="QtyModel.Quantity" onchange="this.form.submit()"> ... </select>
+</form>
+
+<form method="post" @formname="remove-item">
+    <AntiforgeryToken />
+    <input type="hidden" name="RemoveModel.GameId" value="@item.Id" />
+    <button type="submit">Remove</button>
+</form>
+```
+
+```csharp
+[SupplyParameterFromForm(FormName = "update-qty")]  public QtyForm?    QtyModel    { get; set; }
+[SupplyParameterFromForm(FormName = "remove-item")] public RemoveForm? RemoveModel { get; set; }
+```
+
+Only one of the two will be non-null per POST — whichever form was submitted. `OnInitializedAsync` checks which one has a value and handles it:
+
+```csharp
+protected override async Task OnInitializedAsync()
+{
+    if (QtyModel?.GameId is Guid qtyId)   { /* update */ return; }
+    if (RemoveModel?.GameId is Guid removeId) { /* remove */ return; }
+    basket = await Basket.GetBasketAsync(); // normal GET load
+}
+```
+
+The `Nav.NavigateTo("/cart", forceLoad: true)` after a mutation forces a full page reload — this clears the POST state so a browser refresh doesn't resubmit the form.
+
+---
+
+### `[StreamRendering]` — Incremental HTML Delivery
+
+**The problem:**
+A page that awaits an API call makes the browser wait for the entire response before showing anything — the user sees a blank screen for however long the API takes.
+
+**What it does:**
+`[StreamRendering]` on a page component tells Blazor to flush the initial HTML to the browser immediately, including whatever the component renders before its first `await`. The component then streams updated HTML as async operations complete.
+
+```razor
+@page "/catalog"
+@attribute [StreamRendering]
+
+@if (gamesPage is null)
+{
+    <p>Loading...</p>    @* sent to browser immediately *@
+}
+else
+{
+    <table> ... </table>  @* streamed in once the API call completes *@
+}
+```
+
+The user sees "Loading..." almost instantly instead of staring at nothing. This works because HTTP supports chunked transfer encoding — the server sends pieces of the response body as they become available rather than buffering the whole thing.
+
+---
+
+### The `Pagination` Component — Shared Child Components
+
+**The problem:**
+Both `Home.razor` and `Catalog.razor` need pagination links. Duplicating the HTML in each page is error-prone — a bug fix or style change would need to be applied in both places.
+
+**What it does:**
+A shared Razor component (no `@page` directive, lives in `Components/`) encapsulates the pagination UI. Parent pages use it like an HTML tag and pass data via `[Parameter]` properties. `[EditorRequired]` marks parameters that must always be provided — the compiler warns if a caller omits them.
+
+```razor
+@* Pagination.razor *@
+@if (TotalPages > 1)
+{
+    <div class="pagination">
+        @for (var i = 1; i <= TotalPages; i++)
+        {
+            var url = string.IsNullOrEmpty(Query)
+                ? $"{BaseUrl}?page={i}"
+                : $"{BaseUrl}?page={i}&{Query}";
+            <a href="@url" class="@(i == CurrentPage ? "active" : "")">@i</a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int     CurrentPage { get; set; }
+    [Parameter, EditorRequired] public int     TotalPages  { get; set; }
+    [Parameter, EditorRequired] public string  BaseUrl     { get; set; } = default!;
+    [Parameter]                 public string? Query       { get; set; }
+}
+```
+
+The optional `Query` parameter lets callers append extra state to page links — Catalog passes `name=zelda` so search terms survive pagination clicks.
+
+Usage:
+```razor
+<Pagination CurrentPage="page" TotalPages="gamesPage.TotalPages" BaseUrl="/catalog"
+            Query="@(string.IsNullOrEmpty(name) ? null : $"name={Uri.EscapeDataString(name)}")" />
+```
+
+---
+
+### Gravatar in `LoginDisplay`
+
+**The problem:**
+The nav needs to show who's logged in. Storing or serving user avatars is a whole feature on its own.
+
+**What it does:**
+[Gravatar](https://gravatar.com) is a global avatar service: you hash an email address with MD5 and embed the hash in an image URL — Gravatar serves whatever avatar the user registered for that email, or a fallback if they have none.
+
+```csharp
+private static string GravatarUrl(string? email)
+{
+    if (string.IsNullOrWhiteSpace(email)) return string.Empty;
+    var hash = Convert.ToHexString(
+        System.Security.Cryptography.MD5.HashData(
+            System.Text.Encoding.UTF8.GetBytes(email.Trim().ToLower())))
+        .ToLower();
+    return $"https://www.gravatar.com/avatar/{hash}?d=identicon";
+}
+```
+
+- `email.Trim().ToLower()` — Gravatar requires the email to be lowercase with no surrounding whitespace before hashing.
+- `d=identicon` — the fallback when no Gravatar is registered: a deterministic geometric pattern generated from the hash, so every user gets a unique-looking avatar automatically.
+- MD5 is fine here — this isn't a security use, just a lookup key. The Gravatar spec defines it.
+
+The email comes from the `"email"` claim on `context.User`, which Keycloak includes because `email` scope was requested in the OIDC options.
+
+---
+
+### `returnUrl` — Redirect After Login
+
+**The problem:**
+Without a return URL, clicking "Login" on any page always drops the user on `/` after sign-in — they lose their place. A user browsing `/game/abc` who gets logged out mid-session has to navigate back manually after re-authenticating.
+
+**What it does:**
+`LoginDisplay` encodes the current page URL into the login link. The `/login` minimal API reads it back and passes it as `RedirectUri` in the `AuthenticationProperties` — Keycloak uses this as the post-login destination.
+
+```razor
+@* LoginDisplay.razor — encode the current URL into the login link *@
+<a href="/login?returnUrl=@Uri.EscapeDataString(Nav.Uri)" class="btn-primary">Login</a>
+```
+
+```csharp
+// Program.cs — /login endpoint reads returnUrl
+app.MapGet("/login", (string? returnUrl) =>
+    Results.Challenge(
+        new AuthenticationProperties { RedirectUri = returnUrl ?? "/" },
+        [OpenIdConnectDefaults.AuthenticationScheme]
+    ));
+```
+
+`Uri.EscapeDataString` percent-encodes the URL so it survives as a query string value — without it, a URL like `/game/abc?page=2` would break the outer query string parsing. `returnUrl ?? "/"` falls back to the home page when the parameter is absent (e.g., clicking login from the nav directly).
