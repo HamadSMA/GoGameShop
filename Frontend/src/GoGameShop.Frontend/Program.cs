@@ -100,6 +100,48 @@ app.MapPost(
     )
     .RequireAuthorization();
 
+app.MapPost(
+        "/basket/add",
+        async (HttpContext ctx, BasketState basket) =>
+        {
+            var form = await ctx.Request.ReadFormAsync();
+            if (!Guid.TryParse(form["gameId"], out var gameId))
+                return Results.BadRequest();
+            var returnUrl = form["returnUrl"].FirstOrDefault() ?? "/";
+            await basket.AddItemAsync(gameId);
+            return Results.Redirect(returnUrl);
+        }
+    )
+    .RequireAuthorization();
+
+app.MapPost(
+        "/basket/remove",
+        async (HttpContext ctx, BasketState basket) =>
+        {
+            var form = await ctx.Request.ReadFormAsync();
+            if (!Guid.TryParse(form["gameId"], out var gameId))
+                return Results.BadRequest();
+            await basket.RemoveItemAsync(gameId);
+            return Results.Redirect("/cart");
+        }
+    )
+    .RequireAuthorization();
+
+app.MapPost(
+        "/basket/update",
+        async (HttpContext ctx, BasketState basket) =>
+        {
+            var form = await ctx.Request.ReadFormAsync();
+            if (!Guid.TryParse(form["gameId"], out var gameId))
+                return Results.BadRequest();
+            if (!int.TryParse(form["quantity"], out var quantity))
+                return Results.BadRequest();
+            await basket.UpdateQuantityAsync(gameId, quantity);
+            return Results.Redirect("/cart");
+        }
+    )
+    .RequireAuthorization();
+
 app.MapRazorComponents<App>();
 
 app.Run();

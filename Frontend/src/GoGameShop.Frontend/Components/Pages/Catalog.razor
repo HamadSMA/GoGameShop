@@ -14,7 +14,7 @@
 <form id="catalogSearch" method="get" action="/catalog" class="search-bar">
     <input id="searchInput" type="text" name="name" value="@name" placeholder="Search games..." />
     <button type="submit" class="btn-primary">Search</button>
-    <button type="button" onclick="clearSearch()" class="btn-secondary">Clear</button>
+    <button type="button" onclick="clearSearch()" class="btn-primary">Clear</button>
 </form>
 
 @if (gamesPage is null)
@@ -61,5 +61,5 @@ else
     private GamesPageDto? gamesPage;
 
     protected override async Task OnInitializedAsync() =>
-        gamesPage = await Games.GetGamesAsync(page, name: name);
+        gamesPage = await Games.GetGamesAsync(page, pageSize: 12, name: name);
 }

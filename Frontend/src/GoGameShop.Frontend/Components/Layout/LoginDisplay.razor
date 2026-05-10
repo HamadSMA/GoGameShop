@@ -2,15 +2,14 @@
 
 <AuthorizeView>
     <Authorized>
-        <img src="@GravatarUrl(context.User.FindFirst("email")?.Value)" class="avatar" alt="avatar" />
-        <span>@context.User.FindFirst("name")?.Value</span>
+        <span class="nav-username">@context.User.FindFirst("name")?.Value</span>
         <form method="post" action="/logout">
             <AntiforgeryToken />
             <button type="submit" class="btn-secondary">Logout</button>
         </form>
     </Authorized>
     <NotAuthorized>
-        <a href="/login?returnUrl=@Uri.EscapeDataString(Nav.Uri)" class="btn-primary">Login</a>
+        <a href="/login?returnUrl=@Uri.EscapeDataString(Nav.Uri)" class="btn-secondary">Login</a>
     </NotAuthorized>
 </AuthorizeView>
 

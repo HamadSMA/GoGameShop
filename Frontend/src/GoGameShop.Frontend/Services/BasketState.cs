@@ -11,7 +11,7 @@ public class BasketState(ServerBasketClient basketClient, IHttpContextAccessor h
 
     private Guid UserId =>
         Guid.TryParse(
-            httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier),
+            httpContextAccessor.HttpContext?.User.FindFirstValue("sub"),
             out var id
         )
             ? id

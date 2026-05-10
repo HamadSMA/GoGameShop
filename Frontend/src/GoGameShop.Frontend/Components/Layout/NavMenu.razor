@@ -1,14 +1,14 @@
 <nav class="navbar">
-    <a href="/" class="nav-brand">GoGameShop</a>
-    <ul class="nav-links">
+    <a href="/" class="nav-brand">Go Game Shop</a>
+    <div class="nav-links">
         <AuthorizeView Roles="Admin">
-            <li><a href="/catalog">Catalog</a></li>
+            <a href="/catalog">Catalog</a>
         </AuthorizeView>
         <AuthorizeView>
             <Authorized>
-                <li><CartDisplay /></li>
+                <CartDisplay />
             </Authorized>
         </AuthorizeView>
-        <li><LoginDisplay /></li>
-    </ul>
+        <LoginDisplay />
+    </div>
 </nav>

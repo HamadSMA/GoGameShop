@@ -17,22 +17,17 @@ else
         <div class="game-info">
             <h1>@game.Name</h1>
             <p>@game.Description</p>
-            <p><strong>Price:</strong> $@game.Price</p>
+            <p>Price: <span class="price-tag">$@game.Price</span></p>
             <p><strong>Release:</strong> @game.ReleaseDate.ToString("MMMM d, yyyy")</p>
-
-            @if (added)
-            {
-                <p class="success">Added to cart!</p>
-            }
 
             <form method="post" @formname="add-to-cart">
                 <AntiforgeryToken />
                 <input type="hidden" name="Form.GameId" value="@game.Id" />
-                <button type="submit" class="btn-primary">Add to Cart</button>
+                <button type="submit" class="btn-primary js-add-to-cart">Add to Cart</button>
             </form>
 
             <AuthorizeView Roles="Admin">
-                <a href="/games/@game.Id/edit" class="btn-secondary">Edit</a>
+                <a href="/games/@game.Id/edit" class="btn-primary">Edit</a>
             </AuthorizeView>
         </div>
     </div>
