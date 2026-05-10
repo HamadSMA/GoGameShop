@@ -18,17 +18,19 @@ else
             <h1>@game.Name</h1>
             <p>@game.Description</p>
             <p>Price: <span class="price-tag">$@game.Price</span></p>
-            <p><strong>Release:</strong> @game.ReleaseDate.ToString("MMMM d, yyyy")</p>
+            <p><strong>Release:</strong> @game.ReleaseDate.ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)</p>
 
-            <form method="post" @formname="add-to-cart">
-                <AntiforgeryToken />
-                <input type="hidden" name="Form.GameId" value="@game.Id" />
-                <button type="submit" class="btn-primary js-add-to-cart">Add to Cart</button>
-            </form>
+            <div class="game-actions">
+                <form method="post" @formname="add-to-cart">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="Form.GameId" value="@game.Id" />
+                    <button type="submit" class="btn-primary js-add-to-cart">Add to Cart</button>
+                </form>
 
-            <AuthorizeView Roles="Admin">
-                <a href="/games/@game.Id/edit" class="btn-primary">Edit</a>
-            </AuthorizeView>
+                <AuthorizeView Roles="Admin">
+                    <a href="/games/@game.Id/edit" class="btn-secondary">Edit</a>
+                </AuthorizeView>
+            </div>
         </div>
     </div>
 }

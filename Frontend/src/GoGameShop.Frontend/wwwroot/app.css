@@ -60,6 +60,7 @@ h1:focus { outline: none; }
 .navbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1.5rem;
   padding: 0 1.5rem;
   height: 3.5rem;
@@ -78,11 +79,51 @@ h1:focus { outline: none; }
   letter-spacing: -0.02em;
 }
 
+.nav-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  max-width: 1008px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: hsl(var(--background));
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.nav-search:focus-within {
+  border-color: hsl(var(--price));
+  box-shadow: 0 0 0 3px hsl(var(--price) / 0.12);
+}
+.nav-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: transparent;
+  color: hsl(var(--foreground));
+  min-width: 0;
+}
+.nav-search-input::placeholder { color: hsl(var(--muted-foreground)); }
+.nav-search-btn {
+  border: none;
+  background: transparent;
+  padding: 0.375rem 0.625rem;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.nav-search-btn:hover { color: hsl(var(--price)); }
+
 .nav-links {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-left: auto;
 }
 
 .nav-links a {
@@ -250,6 +291,55 @@ h1:focus { outline: none; }
   transform: scale(1.25);
 }
 
+/* ─── Home Layout ───────────────────────────────────────── */
+.home-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 2rem;
+  margin-top: 1.5rem;
+  align-items: start;
+}
+
+.genre-sidebar {
+  position: sticky;
+  top: 4.5rem;
+}
+
+.genre-sidebar-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+  margin: 0 0 0.625rem;
+}
+
+.genre-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.genre-item {
+  display: block;
+  padding: 0.4rem 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.genre-item:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+.genre-item.active {
+  background: hsl(var(--price) / 0.1);
+  color: hsl(var(--price));
+  font-weight: 600;
+}
+
 /* ─── Games Grid ────────────────────────────────────────── */
 .games-grid {
   display: grid;
@@ -314,7 +404,16 @@ h1:focus { outline: none; }
   border-radius: var(--radius);
   border: 1px solid hsl(var(--border));
 }
-.game-info { display: flex; flex-direction: column; gap: 0.875rem; }
+.game-info { display: flex; flex-direction: column; gap: 0.875rem; align-items: flex-start; }
+
+.game-actions {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.game-actions form        { display: flex; }
+.game-actions form button,
+.game-actions .btn-secondary { flex: 1; }
 .game-info h1 {
   margin: 0;
   font-size: 1.75rem;

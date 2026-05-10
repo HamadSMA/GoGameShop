@@ -1,5 +1,11 @@
 <nav class="navbar">
     <a href="/" class="nav-brand">Go Game Shop</a>
+
+    <form method="get" action="/" class="nav-search">
+        <input type="text" name="name" placeholder="Search games…" class="nav-search-input" />
+        <button type="submit" class="nav-search-btn" aria-label="Search">&#128269;</button>
+    </form>
+
     <div class="nav-links">
         <AuthorizeView Roles="Admin">
             <a href="/catalog">Catalog</a>

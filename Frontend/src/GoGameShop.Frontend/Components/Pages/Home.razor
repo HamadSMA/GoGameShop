@@ -1,6 +1,7 @@
 @page "/"
 @attribute [StreamRendering]
 @inject GamesClient Games
+@inject LookupClient Lookup
 @inject NavigationManager Nav
 
 <PageTitle>GoGameShop</PageTitle>
@@ -24,43 +25,95 @@
     </div>
 </div>
 
-@if (gamesPage is null)
-{
-    <p>Loading...</p>
-}
-else
-{
-    <div class="games-grid">
-        @foreach (var game in gamesPage.Games)
+<div class="home-layout">
+    <aside class="genre-sidebar">
+        <h2 class="genre-sidebar-title">Genres</h2>
+        <nav class="genre-list">
+            <a href="@GenreHref(null)" class="genre-item @(string.IsNullOrEmpty(genre) ? "active" : "")">All</a>
+            @foreach (var g in genres)
+            {
+                <a href="@GenreHref(g.Name)"
+                   class="genre-item @(genre == g.Name ? "active" : "")">@g.Name</a>
+            }
+        </nav>
+    </aside>
+
+    <div class="home-content">
+        @if (gamesPage is null)
         {
-            <div class="game-card">
-                <a href="/game/@game.Id" class="game-card-link">
-                    <img src="@game.ImageUri" alt="@game.Name" />
-                    <div class="game-card-body">
-                        <h3>@game.Name</h3>
-                        <p>@game.Genre &middot; @game.Rating</p>
+            <p>Loading...</p>
+        }
+        else
+        {
+            <div class="games-grid">
+                @foreach (var game in gamesPage.Games)
+                {
+                    <div class="game-card">
+                        <a href="/game/@game.Id" class="game-card-link">
+                            <img src="@game.ImageUri" alt="@game.Name" />
+                            <div class="game-card-body">
+                                <h3>@game.Name</h3>
+                                <p>@game.Genre &middot; @game.Rating</p>
+                            </div>
+                        </a>
+                        <div class="game-card-footer">
+                            <strong class="price-tag">$@game.Price</strong>
+                            <AuthorizeView>
+                                <Authorized>
+                                    <form method="post" action="/basket/add">
+                                        <AntiforgeryToken />
+                                        <input type="hidden" name="gameId" value="@game.Id" />
+                                        <input type="hidden" name="returnUrl" value="@Nav.Uri" />
+                                        <button type="submit" class="btn-primary btn-sm js-add-to-cart">Add to Cart</button>
+                                    </form>
+                                </Authorized>
+                                <NotAuthorized>
+                                    <a href="/login?returnUrl=@Uri.EscapeDataString(Nav.Uri)" class="btn-primary btn-sm">Add to Cart</a>
+                                </NotAuthorized>
+                            </AuthorizeView>
+                        </div>
                     </div>
-                </a>
-                <div class="game-card-footer">
-                    <strong class="price-tag">$@game.Price</strong>
-                    <form method="post" action="/basket/add">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="gameId" value="@game.Id" />
-                        <input type="hidden" name="returnUrl" value="@Nav.Uri" />
-                        <button type="submit" class="btn-primary btn-sm js-add-to-cart">Add to Cart</button>
-                    </form>
-                </div>
+                }
             </div>
+            <Pagination CurrentPage="page"
+                        TotalPages="gamesPage.TotalPages"
+                        BaseUrl="/"
+                        Query="@BuildQuery(genre, name)" />
         }
     </div>
-    <Pagination CurrentPage="page" TotalPages="gamesPage.TotalPages" BaseUrl="/" />
-}
+</div>
 
 @code {
-    [SupplyParameterFromQuery(Name = "page")] public int page { get; set; } = 1;
+    [SupplyParameterFromQuery(Name = "page")]  public int     page  { get; set; } = 1;
+    [SupplyParameterFromQuery(Name = "genre")] public string? genre { get; set; }
+    [SupplyParameterFromQuery(Name = "name")]  public string? name  { get; set; }
 
-    private GamesPageDto? gamesPage;
+    private GamesPageDto?         gamesPage;
+    private IEnumerable<GenreDto> genres = [];
 
-    protected override async Task OnInitializedAsync() =>
-        gamesPage = await Games.GetGamesAsync(page, pageSize: 12);
+    protected override async Task OnInitializedAsync()
+    {
+        var genresTask = Lookup.GetGenresAsync();
+        var gamesTask  = Games.GetGamesAsync(page, pageSize: 12, name: name, genre: genre);
+        await Task.WhenAll(genresTask, gamesTask);
+        genres    = await genresTask;
+        gamesPage = await gamesTask;
+    }
+
+    private string GenreHref(string? g)
+    {
+        var q = BuildQuery(g, name);
+        return string.IsNullOrEmpty(q) ? "/" : $"/?{q}";
+    }
+
+    private static string? BuildQuery(string? g, string? n)
+    {
+        var parts = new[]
+        {
+            string.IsNullOrEmpty(g) ? null : $"genre={Uri.EscapeDataString(g)}",
+            string.IsNullOrEmpty(n) ? null : $"name={Uri.EscapeDataString(n)}"
+        };
+        var q = string.Join("&", parts.Where(p => p is not null));
+        return string.IsNullOrEmpty(q) ? null : q;
+    }
 }

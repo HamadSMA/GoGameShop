@@ -9,12 +9,15 @@ public class GamesClient(HttpClient http)
     public async Task<GamesPageDto> GetGamesAsync(
         int page = 1,
         int pageSize = 5,
-        string? name = null
+        string? name = null,
+        string? genre = null
     )
     {
         var url = $"games?pageNumber={page}&pageSize={pageSize}";
         if (!string.IsNullOrWhiteSpace(name))
             url += $"&name={Uri.EscapeDataString(name)}";
+        if (!string.IsNullOrWhiteSpace(genre))
+            url += $"&genre={Uri.EscapeDataString(genre)}";
         return await http.GetFromJsonAsync<GamesPageDto>(url) ?? new(0, []);
     }
 
