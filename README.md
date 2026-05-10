@@ -40,7 +40,7 @@ SSR app that serves the storefront — listings, game detail, basket, and Keyclo
   <tr>
     <td align="center" width="50%">
       <a href="screenshots/cart.png"><img src="screenshots/thumbs/cart.png" width="100%" alt="Cart" /></a><br />
-      <em>Cart: quantity controls, Remove, and order summary</em>
+      <em>Cart: drop-down for quantity controls, remove game, and order summary</em>
     </td>
     <td align="center" width="50%">
       <a href="screenshots/edit-game.png"><img src="screenshots/thumbs/edit-game.png" width="100%" alt="Edit Game" /></a><br />
