@@ -25,25 +25,25 @@ SSR app that serves the storefront — listings, game detail, basket, and Keyclo
 
 ## Screenshots
 
-<table>
+<table width="100%">
   <tr>
-    <td align="center">
-      <a href="screenshots/home.png"><img src="screenshots/thumbs/home.png" width="400" alt="Home" /></a><br />
+    <td align="center" width="50%">
+      <a href="screenshots/home.png"><img src="screenshots/thumbs/home.png" width="100%" alt="Home" /></a><br />
       <em>Storefront: carousel, genre sidebar, paginated game grid</em>
     </td>
-    <td align="center">
-      <a href="screenshots/catalog.png"><img src="screenshots/thumbs/catalog.png" width="400" alt="Catalog" /></a><br />
+    <td align="center" width="50%">
+      <a href="screenshots/catalog.png"><img src="screenshots/thumbs/catalog.png" width="100%" alt="Catalog" /></a><br />
       <em>Admin catalog: searchable table with Edit and Delete actions</em>
     </td>
   </tr>
   <tr><td colspan="2" height="16"></td></tr>
   <tr>
-    <td align="center">
-      <a href="screenshots/cart.png"><img src="screenshots/thumbs/cart.png" width="400" alt="Cart" /></a><br />
+    <td align="center" width="50%">
+      <a href="screenshots/cart.png"><img src="screenshots/thumbs/cart.png" width="100%" alt="Cart" /></a><br />
       <em>Cart: quantity controls, Remove, and order summary</em>
     </td>
-    <td align="center">
-      <a href="screenshots/edit-game.png"><img src="screenshots/thumbs/edit-game.png" width="400" alt="Edit Game" /></a><br />
+    <td align="center" width="50%">
+      <a href="screenshots/edit-game.png"><img src="screenshots/thumbs/edit-game.png" width="100%" alt="Edit Game" /></a><br />
       <em>Edit game form: image preview, API-populated dropdowns, file upload</em>
     </td>
   </tr>
