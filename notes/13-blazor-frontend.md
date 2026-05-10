@@ -318,11 +318,11 @@ private async Task Sync(IEnumerable<UpsertBasketItemDto> items)
 ```csharp
 private Guid UserId =>
     Guid.TryParse(
-        httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier),
+        httpContextAccessor.HttpContext?.User.FindFirstValue("sub"),
         out var id) ? id : Guid.Empty;
 ```
 
-`ClaimTypes.NameIdentifier` maps to Keycloak's `sub` claim — the user's unique ID in the realm. Because `MapInboundClaims = false` is set in the OIDC options, the claim name stays as the short string `"sub"` rather than a long Microsoft URL. `ClaimTypes.NameIdentifier` resolves to `"sub"` in that context, matching correctly.
+Keycloak's user ID arrives in the `sub` claim. With `MapInboundClaims = false` in the OIDC options, claim names are kept exactly as the token delivers them — `"sub"`, `"name"`, `"role"` — instead of being remapped to Microsoft's long URL equivalents (e.g. `ClaimTypes.NameIdentifier` = `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier`). That means `FindFirstValue("sub")` is the correct lookup; `ClaimTypes.NameIdentifier` would silently return null because no claim with that URL name exists.
 
 ---
 
@@ -481,7 +481,7 @@ For `?page=3&name=zelda`, Blazor sets `page = 3` and `name = "zelda"` automatica
 ### Form Handling in Static SSR — `@formname`, `[SupplyParameterFromForm]`, `AntiforgeryToken`
 
 **The problem:**
-Static SSR has no persistent JavaScript — all user actions go through standard HTML form POST. When a page has multiple forms (a cart page with "update quantity" and "remove item" buttons), there needs to be a way to tell the forms apart on the server and bind their posted fields to separate C# models.
+Static SSR has no persistent JavaScript — all user actions go through standard HTML form POST. When a page has a single form (e.g. an edit form or an add-to-cart form on a game detail page), there needs to be a way to tell the server which form was submitted and bind its fields to a C# model.
 
 **What it does:**
 `@formname="foo"` gives a Razor form a name. On POST, Blazor reads a hidden field that carries this name and routes the posted values to the matching `[SupplyParameterFromForm(FormName = "foo")]` parameter. Properties on the bound model are populated from the form fields by name.
@@ -489,36 +489,61 @@ Static SSR has no persistent JavaScript — all user actions go through standard
 `<AntiforgeryToken />` renders a hidden CSRF token field that `app.UseAntiforgery()` validates on every POST — without it, the middleware rejects the request.
 
 ```razor
-<form method="post" @formname="update-qty">
+<form method="post" @formname="add-to-cart">
     <AntiforgeryToken />
-    <input type="hidden" name="QtyModel.GameId" value="@item.Id" />
-    <select name="QtyModel.Quantity" onchange="this.form.submit()"> ... </select>
-</form>
-
-<form method="post" @formname="remove-item">
-    <AntiforgeryToken />
-    <input type="hidden" name="RemoveModel.GameId" value="@item.Id" />
-    <button type="submit">Remove</button>
+    <input type="hidden" name="Form.GameId" value="@game.Id" />
+    <button type="submit">Add to Cart</button>
 </form>
 ```
 
 ```csharp
-[SupplyParameterFromForm(FormName = "update-qty")]  public QtyForm?    QtyModel    { get; set; }
-[SupplyParameterFromForm(FormName = "remove-item")] public RemoveForm? RemoveModel { get; set; }
-```
+[SupplyParameterFromForm(FormName = "add-to-cart")] public AddToCartForm? Form { get; set; }
 
-Only one of the two will be non-null per POST — whichever form was submitted. `OnInitializedAsync` checks which one has a value and handles it:
-
-```csharp
 protected override async Task OnInitializedAsync()
 {
-    if (QtyModel?.GameId is Guid qtyId)   { /* update */ return; }
-    if (RemoveModel?.GameId is Guid removeId) { /* remove */ return; }
-    basket = await Basket.GetBasketAsync(); // normal GET load
+    if (Form?.GameId is Guid gameId)
+    {
+        await Basket.AddItemAsync(gameId);
+    }
+    game = await Games.GetGameAsync(Id);
 }
 ```
 
-The `Nav.NavigateTo("/cart", forceLoad: true)` after a mutation forces a full page reload — this clears the POST state so a browser refresh doesn't resubmit the form.
+**The `@formname` uniqueness constraint:**
+Every `@formname` on a page must be unique. Blazor throws at runtime — "Cannot submit the form 'remove-item' because no form on the page currently has that name" — when multiple forms share the same name, which happens naturally in a `@foreach` loop:
+
+```razor
+@foreach (var item in basket.Items)
+{
+    <form method="post" @formname="remove-item">  @* ← same name for every iteration *@
+```
+
+Blazor can't distinguish which instance was submitted, so it rejects all of them.
+
+**Fix — minimal API endpoints instead of `@formname`:**
+When the same action needs to apply to any item in a list, move it to a dedicated `MapPost` endpoint that reads the form body directly. The form posts to a URL instead of back to the page, and the endpoint redirects back after the mutation:
+
+```csharp
+// Program.cs
+app.MapPost("/basket/remove", async (HttpContext ctx, BasketState basket) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    if (!Guid.TryParse(form["gameId"], out var gameId)) return Results.BadRequest();
+    await basket.RemoveItemAsync(gameId);
+    return Results.Redirect("/cart");
+}).RequireAuthorization();
+```
+
+```razor
+@* Cart.razor — no @formname, posts to the endpoint directly *@
+<form method="post" action="/basket/remove">
+    <AntiforgeryToken />
+    <input type="hidden" name="gameId" value="@item.Id" />
+    <button type="submit" class="btn-danger">Remove</button>
+</form>
+```
+
+`app.UseAntiforgery()` in the pipeline validates the antiforgery token automatically for these endpoints — no attribute needed. The same pattern works for `/basket/add` (from any listing page) and `/basket/update`. The page `@code` block is reduced to just loading data on GET, with no form-handling logic.
 
 ---
 
@@ -614,6 +639,72 @@ private static string GravatarUrl(string? email)
 - MD5 is fine here — this isn't a security use, just a lookup key. The Gravatar spec defines it.
 
 The email comes from the `"email"` claim on `context.User`, which Keycloak includes because `email` scope was requested in the OIDC options.
+
+---
+
+### `FocusOnNavigate` — Post-Navigation Focus Management
+
+**The problem:**
+After a page navigation or form POST, keyboard and screen-reader users need focus to land somewhere meaningful — otherwise tab order starts from the top of the browser chrome, not the page content.
+
+**What it does:**
+`<FocusOnNavigate Selector="h1" />` in `Routes.razor` automatically focuses the first `<h1>` element after every Blazor navigation. This is a standard accessibility pattern: bring focus to the main heading so screen readers announce the new page and keyboard users don't have to tab through the navbar on every route change.
+
+```razor
+@* Routes.razor *@
+<AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+<FocusOnNavigate RouteData="routeData" Selector="h1" />
+```
+
+**Side effect:**
+Browsers show a focus ring (outline) on focused elements by default. `<h1>` elements aren't interactive, so the outline looks wrong — after a form POST that re-renders the same page (e.g. Add to Cart on the game detail page), the heading appears highlighted. Suppress it with CSS without removing focus behavior from interactive elements:
+
+```css
+h1:focus { outline: none; }
+```
+
+This only removes the outline on headings. Buttons, inputs, and links still show their focus rings.
+
+---
+
+### JavaScript in Static SSR — Button Feedback and Scroll Preservation
+
+**The problem:**
+Static SSR pages reload on every form POST — there's no in-memory state between requests. Two UX problems follow: (1) a button that submits a form gives no visible feedback before the page reloads, leaving the user uncertain if the click registered; (2) if the user was scrolled down a long page, the reload jumps them back to the top.
+
+**Button feedback — intercept, show, then submit:**
+Instead of letting the form submit immediately, intercept the click in JS, change the button label, then submit after a short delay. The page reload resets the button to its original state automatically.
+
+```javascript
+document.querySelectorAll('.js-add-to-cart').forEach(btn => {
+    if (btn.dataset.cartBound) return; // guard against double-binding on enhancedload
+    btn.dataset.cartBound = '1';
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        sessionStorage.setItem('cart_scrollY', window.scrollY); // save scroll before navigate
+        btn.textContent = '✓ Added!';
+        btn.disabled = true;
+        setTimeout(() => btn.closest('form').submit(), 750);
+    });
+});
+```
+
+The `dataset.cartBound` guard is necessary because Blazor fires `enhancedload` after every enhanced navigation — without it, each navigation re-runs `_initAddToCart` and stacks a new listener on every button.
+
+**Scroll preservation — `sessionStorage` across the reload:**
+`sessionStorage` persists across page reloads within the same tab but not across tabs. That makes it the right bridge for "remember where I was before this form POST":
+
+```javascript
+// On every page init — restore scroll if we just came back from a basket action
+const savedY = sessionStorage.getItem('cart_scrollY');
+if (savedY !== null) {
+    sessionStorage.removeItem('cart_scrollY');
+    window.scrollTo(0, parseInt(savedY, 10));
+}
+```
+
+Save before submit, restore on load, clear immediately after restore — the key is only present for the one reload following the add-to-cart action.
 
 ---
 
