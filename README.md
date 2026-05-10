@@ -164,7 +164,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ▓▓▓▓▓▓▓▓▓▓  Vertical Slice Architecture, REST API, CRUD, DTOs, EF Core, SQLite
 ▓▓▓▓▓▓▓▓▓▓  Middleware, HTTP Logging, Error Handling, Pagination, Search, File System, OpenAPI
 ▓▓▓▓▓▓▓▓▓▓  JWT Authentication, Role & Policy Authorization, Keycloak, OAuth 2.0, OpenID Connect
-▓▓▓▓▓▓▓░░░  Blazor Frontend — Game Catalogue, Listings, Game Detail, Search, Basket, Keycloak Auth
+▓▓▓▓▓▓▓▓▓▓  Blazor Frontend — Game Catalogue, Listings, Game Detail, Search, Basket, Keycloak Auth
 ░░░░░░░░░░  Azure App Service, PostgreSQL, Blob Storage, Key Vault, CDN, CI/CD Pipelines
 ░░░░░░░░░░  Containerization, .NET Aspire, Health Checks, Azure Container Apps
 ░░░░░░░░░░  Background Workers, Service Bus, Outbox Pattern, Stripe Payments

@@ -786,6 +786,66 @@ Save before submit, restore on load, clear immediately after restore — the key
 
 ---
 
+### Responsive Design in Static SSR
+
+**The problem:**
+Static SSR pages render HTML on the server — there's no client-side JavaScript framework to conditionally mount different component trees for different screen sizes. All responsiveness has to be done in CSS.
+
+**What it does:**
+Standard `@media` queries handle everything. Three breakpoints cover the layout shifts:
+
+| Breakpoint | Trigger | Key changes |
+|---|---|---|
+| `≤ 1024px` | Tablet | Grid 4 → 3 columns |
+| `≤ 768px` | Mobile | Grid 2 columns, navbar wraps, sidebar flattens, layouts stack |
+| `≤ 480px` | Small phone | Grid 1 column, username hidden |
+
+**Navbar wrapping on mobile:**
+The navbar is a `display: flex` row. On mobile, `flex-wrap: wrap` combined with CSS `order` lets the search bar drop to a full-width second row while logo and nav-links stay on the first:
+
+```css
+@media (max-width: 768px) {
+  .navbar    { flex-wrap: wrap; height: auto; }
+  .nav-brand { order: 1; }
+  .nav-links  { order: 2; }
+  .nav-search { order: 3; width: 100%; }   /* drops to row 2 */
+}
+```
+
+No JavaScript needed — `flex-wrap` and `order` handle it entirely in CSS.
+
+**Genre sidebar → horizontal pills on mobile:**
+The sidebar is a `position: sticky` column on desktop. On mobile it switches to a static horizontal wrapping row of pills above the grid — the layout change is two rules:
+
+```css
+@media (max-width: 768px) {
+  .home-layout  { grid-template-columns: 1fr; }  /* sidebar stacks above grid */
+  .genre-sidebar { position: static; }
+  .genre-list   { flex-direction: row; flex-wrap: wrap; }
+}
+```
+
+The genre items are already styled as pills — changing `flex-direction` is all that's needed.
+
+**Cart item grid → flex on mobile:**
+The cart item uses a 4-column CSS grid on desktop for aligned columns. On mobile the fixed columns are too narrow, so it switches to `flex-wrap` — the image and name/price stay on the first row, and the quantity + remove forms wrap to a second row naturally:
+
+```css
+@media (max-width: 768px) {
+  .cart-item { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .cart-item > div { flex: 1; min-width: 0; }
+}
+```
+
+**Culture-safe date formatting:**
+`ToShortDateString()` and `ToString("MMMM d, yyyy")` without a culture specifier pick up the server thread's culture — on an Arabic locale this renders dates in the Hijri calendar. Passing `CultureInfo.InvariantCulture` forces Gregorian with English month names regardless of server locale:
+
+```razor
+@game.ReleaseDate.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
+```
+
+---
+
 ### `returnUrl` — Redirect After Login
 
 **The problem:**
