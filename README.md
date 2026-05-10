@@ -19,9 +19,9 @@ architecture and minimal API patterns.
 
 ## Overview
 
-GoGameShop is a backend service designed to manage a catalog of digital games, including features for browsing genres,
-ratings, and managing game details (CRUD operations). It leverages the latest .NET features to provide a performant and
-scalable foundation.
+GoGameShop is a full-stack game store for selling digital game keys. The backend is an ASP.NET Core Minimal API that
+manages a catalog of games with browsing, search, genre filtering, and CRUD operations. The frontend is a Blazor Static
+SSR app that serves the storefront — listings, game detail, basket, and Keycloak-authenticated checkout.
 
 ## Technology Stack
 
@@ -126,6 +126,17 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
 |--------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | `GET`  | `/baskets/{userId}` | Get a customer's basket with items and total amount. Returns an empty basket if none exists — requires `UserAccess` policy (via fallback) |
 | `PUT`  | `/baskets/{userId}` | Create or replace a customer's basket (upsert) — requires `UserAccess` policy (via fallback)                                              |
+
+### Frontend Endpoints
+
+These routes are registered in `Frontend/src/GoGameShop.Frontend/Program.cs`. The browser POSTs to the frontend server,
+which then calls the backend API via `BasketState`. They all require authentication.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/basket/add` | Add a game to the basket; redirects back to `returnUrl` |
+| `POST` | `/basket/remove` | Remove a game from the basket; redirects to `/cart` |
+| `POST` | `/basket/update` | Update item quantity; redirects to `/cart` |
 
 ### Genres & Ratings
 
