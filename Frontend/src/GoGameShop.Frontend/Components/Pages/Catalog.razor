@@ -38,7 +38,7 @@ else
                     <td>@game.Genre</td>
                     <td>@game.Rating</td>
                     <td>$@game.Price</td>
-                    <td>@game.ReleaseDate.ToShortDateString()</td>
+                    <td>@game.ReleaseDate.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)</td>
                     <td class="actions">
                         <a href="/games/@game.Id/edit">Edit</a>
                         <a href="/games/@game.Id/delete">Delete</a>
