@@ -9,9 +9,9 @@ architecture and minimal API patterns.
 
 | Area | Split | What that means |
 |---|---|---|
-| Backend | 100% handwritten | Every line of C# typed by hand — I own all the bugs |
-| Docs & Notes | ~80% AI / ~20% me | AI drafts, I cut what's wrong and keep what helps me learn |
-| Frontend | 100% prompted | Blazor is new to me; prompted feature by feature, reviewed every file |
+| Backend | 100% handwritten | Every line of C# typed by hand for retention. |
+| Docs & Notes | ~80% AI / ~20% me | AI drafts, and I keep what I find useful |
+| Frontend | 100% prompted | This is not the focus of this project. Complete understanding isn't relevant for now
 
 📓 **Dev Notes** — Running notes I take while building this project. [View notes →](./NOTES.md)
 
