@@ -5,7 +5,7 @@ architecture and minimal API patterns.
 
 ---
 
-**AI Disclosure**
+**Build transparency**
 
 | Area | Split | What that means |
 |---|---|---|

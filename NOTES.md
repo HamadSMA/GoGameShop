@@ -1,8 +1,7 @@
 # GoGameShop — Learning Notes
 
 > [!NOTE]
-> These notes are AI-assisted and personally customized as I manually write code in this project. They serve as my
-> reference and review material.
+> These are personal notes written alongside the project with AI assistance
 
 ---
 

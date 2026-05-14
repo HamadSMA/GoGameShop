@@ -14,8 +14,14 @@ public static class GetGamesEndpoint
                     var skipCount = (request.PageNumber - 1) * request.PageSize;
 
                     var filteredGames = dbContext.Games.Where(game =>
-                        (string.IsNullOrWhiteSpace(request.Name) || EF.Functions.Like(game.Name, $"%{request.Name}%")) &&
-                        (string.IsNullOrWhiteSpace(request.Genre) || game.Genre!.Name == request.Genre)
+                        (
+                            string.IsNullOrWhiteSpace(request.Name)
+                            || EF.Functions.Like(game.Name, $"%{request.Name}%")
+                        )
+                        && (
+                            string.IsNullOrWhiteSpace(request.Genre)
+                            || game.Genre!.Name == request.Genre
+                        )
                     );
 
                     var gamesOnPage = await filteredGames

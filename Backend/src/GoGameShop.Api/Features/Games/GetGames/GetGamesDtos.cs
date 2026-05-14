@@ -1,6 +1,11 @@
 namespace GoGameShop.Api.Features.Games.GetGames;
 
-public record GetGamesDto(int PageNumber = 1, int PageSize = 5, string? Name = null, string? Genre = null);
+public record GetGamesDto(
+    int PageNumber = 1,
+    int PageSize = 5,
+    string? Name = null,
+    string? Genre = null
+);
 
 public record GamesPageDto(int TotalPages, IEnumerable<GameSummaryDto> Games);
 
