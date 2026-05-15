@@ -14,6 +14,78 @@ Two separate concepts:
 In ASP.NET Core, these are two separate middleware registrations and two separate service registrations. Authentication must run first — authorization depends on it knowing who the caller is.
 
 ---
+### Role-Based Authorization
+
+**The problem:**
+Different users have different levels of access. An admin can create and delete games; a regular customer can only browse and manage their basket. Some mechanism is needed to attach a "rank" to a user and enforce it per endpoint without writing bespoke logic every time.
+
+**What it does:**
+Role-based authorization assigns one or more named roles to a user (for example, `Admin` or `Customer`) and checks for the required role before allowing access. The role comes from a claim inside the JWT. In this project, Keycloak sets a `"role"` claim on the token and the framework checks its value against the required role string.
+
+```csharp
+authBuilder.RequireRole(Roles.Admin);
+```
+
+`RequireRole` is syntactic sugar over `RequireClaim` that specifically targets the claim configured as `RoleClaimType`. If the `role` claim in the token does not contain `"Admin"`, the check fails and the framework returns `403 Forbidden`.
+
+**Use cases:**
+
+- **Admin-only write operations.** `POST /games`, `PUT /games/{id}`, and `DELETE /games/{id}` all require the `Admin` role. A logged-in customer gets `403`; an admin gets through.
+- **Multi-tier access.** A future `Moderator` role could allow game edits but not deletions. Each role maps to a different policy.
+- **Coarse-grained decisions.** When the answer is simply "is this user an admin or not?", role-based auth is the right fit. No resource loading or complex policy logic is needed.
+
+---
+### Claims-Based Authorization
+
+**The problem:**
+Not every access decision maps cleanly to a role. A user might have permission to call the API at all (expressed as a scope claim) but not hold an admin role. Roles are a blunt instrument when permissions are more granular or expressed as arbitrary facts about the user: their tenant, subscription tier, or verified email status.
+
+**What it does:**
+Claims-based authorization checks for the presence of a specific claim (and optionally a specific value) in the user's token. Any key-value pair embedded in a JWT is a claim. `RequireClaim` builds a requirement that a named claim must exist and, when a value is provided, must match.
+
+```csharp
+authBuilder.RequireClaim(ClaimTypes.Scope, ApiAccessScope);
+```
+
+This gates access on the caller having a specific OAuth scope. A request that carries a valid Keycloak token but was not granted `gogameshop_api.all` fails here regardless of any role.
+
+**Use cases:**
+
+- **API access gating.** Every endpoint (via the fallback policy) requires `scope = gogameshop_api.all`. A valid JWT that lacks this scope is still rejected.
+- **Tenant isolation.** A `tenant_id` claim on the token could gate access to tenant-specific resources without a separate role.
+- **Subscription tiers.** A `plan` claim with values like `free` or `premium` could unlock premium endpoints.
+- **Verified identity.** An `email_verified = true` claim could be required before allowing profile changes.
+
+---
+### Policy-Based Authorization
+
+**The problem:**
+Single-requirement checks (`RequireRole`, `RequireClaim`) don't compose well when access depends on multiple conditions. Combining them inline at every endpoint leads to repetition and no single place to read the access rules for the whole system.
+
+**What it does:**
+A policy is a named, reusable bundle of one or more requirements. You define it once at startup and attach it to endpoints by name. The framework evaluates all requirements in the policy and only grants access when every one passes.
+
+```csharp
+.AddPolicy(
+    Policies.AdminAccess,
+    authBuilder =>
+    {
+        authBuilder.RequireClaim(ClaimTypes.Scope, ApiAccessScope);
+        authBuilder.RequireRole(Roles.Admin);
+    }
+);
+```
+
+`AdminAccess` combines a scope check and a role check into a single named unit. Endpoints reference the name, not the individual requirements.
+
+**Use cases:**
+
+- **Composite rules.** `AdminAccess` requires both a valid API scope and the `Admin` role. Neither check alone is sufficient; both must pass.
+- **Fallback / default gate.** `UserAccess` is registered as the fallback policy, automatically protecting every endpoint not otherwise configured.
+- **Centralized rule definitions.** All access rules live in `AuthorizationExtensions.cs`. Changing a rule propagates to every endpoint that references the policy by name.
+- **Explicit endpoint lockdown.** `RequireAuthorization(Policies.AdminAccess)` ties the composite rule to specific routes at registration time, making the intent visible at the call site.
+
+---
 ### JWT Bearer Authentication
 
 **The problem:**
@@ -169,6 +241,13 @@ public class BasketAuthorizationHandler
 ```
 
 This handler is only invoked when `CustomerBasket` is explicitly passed as the resource in an `AuthorizeAsync` call — it is not triggered by the fallback policy.
+
+**Use cases:**
+
+- **Owner-only basket access.** "Can this user read or modify this basket?" depends on who owns it. The handler loads the basket, compares `basket.Id` to the token's `sub` claim, and only succeeds when they match (or the user is an admin).
+- **Author-only content edits.** A future review or comment system could restrict edits to the user who created the record, checked against the resource's `AuthorId` field.
+- **Shared resource with explicit members.** An order accessible to the purchaser and the assigned fulfillment staff, where membership is stored on the order itself, not derivable from the token.
+- **Soft-delete or status guards.** A resource handler can inspect a resource's status (for example, `Order.IsLocked`) and deny access even to the owner when the record is in a protected state.
 
 ---
 ### `IAuthorizationRequirement` — The Rule Marker
