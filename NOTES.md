@@ -22,3 +22,5 @@
 | Postman                         | [notes/11-postman.md](notes/11-postman.md)                             |
 | OAuth 2.0 and OpenID Connect    | [notes/12-oauth-oidc.md](notes/12-oauth-oidc.md)                       |
 | Blazor Frontend                 | [notes/13-blazor-frontend.md](notes/13-blazor-frontend.md)             |
+| Azure                           | [notes/14-azure.md](notes/14-azure.md)                                 |
+| Secret Management               | [notes/15-secret-management.md](notes/15-secret-management.md)         |

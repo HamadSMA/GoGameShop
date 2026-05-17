@@ -332,15 +332,79 @@ builder.Services.AddSingleton<IAuthorizationHandler, BasketAuthorizationHandler>
 `Singleton` is appropriate here because the handler holds no request-specific state — it reads from the context and resource passed in by the framework each time.
 
 ---
-### Named Authentication Schemes
+### Authentication Schemes
 
 **The problem:**
-`AddJwtBearer()` with no arguments registers a single default scheme. That works when there's only one identity provider. But once you integrate a real provider like Keycloak, you need to configure its specific settings (issuer URL, audience, etc.) separately from the generic defaults — and you need a way to tell the framework which scheme to use as the default.
+A real application often needs more than one way of proving who a user is. A browser session might use cookies, the same app's API might accept JWTs, an internal admin tool might rely on Windows authentication, and a future migration might add a second identity provider alongside the first. If the framework only understood "the one true way to authenticate," each of these would need its own parallel pipeline and there would be no consistent way for an endpoint to say "I require *this* kind of authentication."
 
 **What it does:**
-A named scheme lets you register multiple JWT bearer configurations under different names. You then set one as the default so the framework knows which to use when no scheme is explicitly specified. The auth registration is wrapped in an extension method on `IHostApplicationBuilder` so `Program.cs` stays a list of one-line composition calls.
+In ASP.NET Core, an **authentication scheme** is a named pairing of a **handler** (code that examines a request and decides who the user is) and its **options** (issuer URL, signing keys, cookie name, etc.). Every authentication operation is dispatched to a scheme **by name**, so the application can register as many schemes as it needs and route work to the right one per request.
 
-**In code — `Shared/Authorization/AuthorizationExtensions.cs`:**
+**The five operations a scheme can perform:**
+- **Authenticate** : read the request and produce a `ClaimsPrincipal` if credentials are valid
+- **Challenge** : tell an unauthenticated caller how to authenticate (e.g. return `401`, or redirect to a login page)
+- **Forbid** : tell an authenticated caller they are not allowed (e.g. return `403`)
+- **Sign-in** : create a session for the user (e.g. issue a cookie)
+- **Sign-out** : end the session
+
+Not every handler implements all five: a JWT bearer handler authenticates and challenges but never signs in (the identity provider issues the token), while a cookie handler does all of them.
+
+**Every scheme has a name:**
+Each handler type ships an `Add{Scheme}` extension method that registers a scheme. Both overloads exist:
+
+```csharp
+.AddJwtBearer()                      // name = JwtBearerDefaults.AuthenticationScheme ("Bearer")
+.AddJwtBearer("Keycloak", options => /* ... */)  // name = "Keycloak"
+```
+
+The no-argument overload simply uses the handler's default constant (`"Bearer"`, `"Cookies"`, `"OpenIdConnect"`, ...) so trivial apps do not have to think about names. The name only becomes load-bearing when the application needs **two schemes of the same handler type** : e.g. one JWT bearer for Keycloak and another for an external identity provider : because both cannot use the same default name.
+
+To keep names out of magic strings, the convention is a static `Schemes` class, following the same pattern as `Roles` and `Policies` elsewhere in this project:
+
+```csharp
+public static class Schemes
+{
+    public const string Keycloak = nameof(Keycloak);
+}
+```
+
+**Default schemes:**
+`AddAuthentication(defaultScheme)` sets the default scheme used for every operation when an endpoint does not specify one. For finer control, the options object exposes separate defaults per operation:
+
+- `DefaultAuthenticateScheme` : which scheme runs to identify the user on each request
+- `DefaultChallengeScheme` : which scheme handles an unauthenticated request
+- `DefaultForbidScheme` : which scheme handles an authenticated-but-forbidden request
+- `DefaultSignInScheme` / `DefaultSignOutScheme` : which scheme issues / clears the session
+
+A typical web app combining cookies and OpenID Connect uses **cookies** as `DefaultAuthenticateScheme` (read the session cookie on every request) and **OIDC** as `DefaultChallengeScheme` (redirect to the identity provider when unauthenticated):
+
+```csharp
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+    })
+    .AddCookie()
+    .AddOpenIdConnect(options => { /* issuer, client id, ... */ });
+```
+
+**Per-endpoint override:**
+An endpoint can ignore the default and accept a specific scheme (or list of schemes):
+
+```csharp
+app.MapGet("/api/data", () => "ok")
+   .RequireAuthorization(new AuthorizeAttribute
+   {
+       AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme
+   });
+```
+
+This is how one application hosts both cookie-authenticated pages and token-authenticated APIs: the default is cookies, but selected endpoints demand `"Bearer"`.
+
+**In this project : `Shared/Authorization/AuthorizationExtensions.cs`:**
+The API registers two JWT bearer schemes : an unnamed default plus a named `"Keycloak"` scheme : wrapped in an extension method so `Program.cs` stays a list of one-line composition calls.
+
 ```csharp
 public static IHostApplicationBuilder AddGoGameShopAuthentication(
     this IHostApplicationBuilder builder)
@@ -385,24 +449,13 @@ builder.AddGoGameShopAuthentication();
 builder.AddGoGameShopAuthorization();
 ```
 
-**Breaking it down:**
+Line by line:
 
-`AddAuthentication(Schemes.Keycloak)` — sets the default authentication scheme to `"Keycloak"`. Every request will use this scheme unless an endpoint explicitly specifies another one.
-
-`AddJwtBearer(options => ...)` — registers the unnamed/default JWT Bearer scheme. This one has no Authority or Audience — it's a generic fallback.
-
-`AddJwtBearer(Schemes.Keycloak, options => ...)` — registers a second JWT Bearer scheme named `"Keycloak"` with provider-specific settings. Notice that `Authority` and `Audience` are **not** set here — they come from configuration via auto-binding (next section).
-
-`RequireHttpsMetadata = false` — allows fetching the discovery document over HTTP instead of HTTPS. Required for local development with Keycloak on `http://localhost:8080`. Never disable this in production.
-
-The scheme name is a `const string` in a static class, following the same pattern as `Roles` and `Policies`:
-
-```csharp
-public static class Schemes
-{
-    public const string Keycloak = nameof(Keycloak);
-}
-```
+- `AddAuthentication(Schemes.Keycloak)` : sets `"Keycloak"` as the default scheme for every operation. Endpoints not naming a scheme will be authenticated by the Keycloak handler.
+- `AddJwtBearer(options => ...)` : registers the **unnamed** JWT bearer scheme (under the default `"Bearer"` name). No `Authority` or `Audience`, so it acts as a generic fallback.
+- `AddJwtBearer(Schemes.Keycloak, options => ...)` : registers a **second** JWT bearer scheme under the `"Keycloak"` name with provider-specific settings. `Authority` and `Audience` are not hardcoded here : they are auto-bound from configuration (next section).
+- `RequireHttpsMetadata = false` : allows fetching the OIDC discovery document over HTTP, required for local Keycloak on `http://localhost:8080`. Never disable this in production.
+- `OnTokenValidated` : runs the `KeycloakClaimsTransformer` on every valid token to reshape the claims for this project (covered in the claims transformation section below).
 
 ---
 ### Binding JWT Options from Configuration
