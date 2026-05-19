@@ -24,3 +24,4 @@
 | Blazor Frontend                 | [notes/13-blazor-frontend.md](notes/13-blazor-frontend.md)             |
 | Azure                           | [notes/14-azure.md](notes/14-azure.md)                                 |
 | Secret Management               | [notes/15-secret-management.md](notes/15-secret-management.md)         |
+| Testing                         | [notes/16-testing.md](notes/16-testing.md)                             |

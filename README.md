@@ -7,11 +7,11 @@ architecture and minimal API patterns.
 
 **Build transparency**
 
-| Area | Split | What that means |
+| Area | Approach | What that means |
 |---|---|---|
-| Backend | 100% handwritten | Every line of C# typed by hand for retention. |
-| Docs & Notes | ~80% AI / ~20% me | AI drafts, and I keep what I find useful |
-| Frontend | 100% prompted | This is not the focus of this project. Complete understanding isn't relevant for now
+| Backend | Hand-typed C# | Limiting AI use for learning. I use it when concepts are retained. |
+| Docs & Notes | Collaborated | AI drafted, reviewed by me |
+| Frontend | Prompted | This is not the focus of this project. Complete understanding isn't relevant for now |
 
 📓 **Dev Notes** — Running notes I take while building this project. [View notes →](./NOTES.md)
 
@@ -112,6 +112,7 @@ SSR app that serves the storefront — listings, game detail, basket, and Keyclo
 - **Build:** `dotnet build`
 - **Run API:** `dotnet run --project Backend/src/GoGameShop.Api`
 - **Run frontend:** `dotnet run --project Frontend/src/GoGameShop.Frontend`
+- **Run tests:** `dotnet test Backend/GoGameShop.Api.sln`
 - **Add Migration:** `dotnet ef migrations add <MigrationName> --project Backend/src/GoGameShop.Api`
 - **Update Database:** `dotnet ef database update --project Backend/src/GoGameShop.Api`
 
@@ -175,7 +176,9 @@ which then calls the backend API via `BasketState`. They all require authenticat
 
 ```text
 GoGameShop/
-├── Backend/       # ASP.NET Core Minimal API
+├── Backend/
+│   ├── src/       # ASP.NET Core Minimal API
+│   └── tests/     # xUnit unit and integration tests
 ├── Frontend/      # Blazor Static SSR frontend
 ├── postman/       # Postman workspace (collections, environments)
 └── .postman/      # Postman backup/config
@@ -185,11 +188,29 @@ Full annotated structure: [notes/01-project-setup.md](notes/01-project-setup.md#
 
 ## Tests
 
-- **TODO:** Implement automated unit and integration tests (e.g., using xUnit or NUnit).
-- **Manual Testing (HTTP file):** Use `Backend/gogameshop.http` with
+Two test projects live under `Backend/tests/`:
+
+- **`GoGameShop.Api.UnitTests`** — xUnit + NSubstitute. 10 tests covering pure logic in `BasketAuthorizationHandler` (5)
+  and `KeycloakClaimsTransformer` (5).
+- **`GoGameShop.Api.IntegrationTests`** — xUnit + `Microsoft.AspNetCore.Mvc.Testing` + `Microsoft.EntityFrameworkCore.Sqlite`.
+  5 tests covering the games and baskets endpoints. The host runs in-process via `WebApplicationFactory<Program>`
+  against a SQLite in-memory database, and a custom `TestAuthHandler` builds a `ClaimsPrincipal` from request headers
+  so tests can authenticate without running Keycloak.
+
+Run the whole suite:
+
+```bash
+dotnet test Backend/GoGameShop.Api.sln
+```
+
+Full breakdown of each test and what it proves: [notes/16-testing.md](notes/16-testing.md#tests-in-this-project).
+
+### Manual testing
+
+- **HTTP file:** Use `Backend/gogameshop.http` with
   the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension in VS Code or the
   built-in HTTP client in JetBrains Rider.
-- **Manual Testing (Postman):** Import collections from the `postman/collections/` directory into Postman.
+- **Postman:** Import collections from the `postman/collections/` directory into Postman.
 
 ## License
 
@@ -202,8 +223,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ▓▓▓▓▓▓▓▓▓▓  Middleware, HTTP Logging, Error Handling, Pagination, Search, File System, OpenAPI
 ▓▓▓▓▓▓▓▓▓▓  JWT Authentication, Role & Policy Authorization, Keycloak, OAuth 2.0, OpenID Connect
 ▓▓▓▓▓▓▓▓▓▓  Blazor Frontend — Game Catalogue, Listings, Game Detail, Search, Basket, Keycloak Auth
+▓▓▓▓▓▓▓▓▓▓  Unit & Integration Testing — xUnit, NSubstitute, WebApplicationFactory, SQLite in-memory
 ░░░░░░░░░░  Azure App Service, PostgreSQL, Blob Storage, Key Vault, CDN, CI/CD Pipelines
 ░░░░░░░░░░  Containerization, .NET Aspire, Health Checks, Azure Container Apps
 ░░░░░░░░░░  Background Workers, Service Bus, Outbox Pattern, Stripe Payments
-░░░░░░░░░░  Integration Testing
 ```
