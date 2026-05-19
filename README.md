@@ -9,8 +9,8 @@ architecture and minimal API patterns.
 
 | Area | Approach | What that means |
 |---|---|---|
-| Backend | Hand-typed C# | Limiting AI use for learning. I use it when concepts are retained. |
-| Docs & Notes | Collaborated | AI drafted, reviewed by me |
+| Backend | Hand-typed C# | Limiting AI use for learning. I use it when concepts are retained |
+| Docs, notes & tests | Collaborated | AI draft/scaffold, reviewed by me |
 | Frontend | Prompted | This is not the focus of this project. Complete understanding isn't relevant for now |
 
 📓 **Dev Notes** — Running notes I take while building this project. [View notes →](./NOTES.md)
