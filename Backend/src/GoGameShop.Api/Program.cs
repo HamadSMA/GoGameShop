@@ -66,3 +66,5 @@ else
 await app.InitializeDbAsync();
 
 app.Run();
+
+public partial class Program { }
