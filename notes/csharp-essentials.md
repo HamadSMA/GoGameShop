@@ -2,13 +2,8 @@
 
 ### Extension Methods
 
-**The problem:**
-You often want to add behavior to a type you don't own (`WebApplication`, `string`, `IEnumerable<T>`) — but you can't edit its source. Wrapping it in a helper class works, but the call site reads awkwardly: `Helpers.DoThing(target)` instead of `target.DoThing()`.
+An **extension method** is a static method that *appears* to live on the target type. You often want to add behavior to a type you don't own (`WebApplication`, `string`, `IEnumerable<T>`), but you can't edit its source. The `this` keyword on the first parameter tells the compiler to allow `target.Method()` syntax — same dispatch as a real method, no inheritance or modification of the original type required.
 
-**What it does:**
-An **extension method** is a static method that *appears* to live on the target type. The `this` keyword on the first parameter tells the compiler to allow `target.Method()` syntax — same dispatch as a real method, no inheritance or modification of the original type required.
-
-**In code:**
 ```csharp
 // Defined as:
 public static void MapGames(this IEndpointRouteBuilder app) { ... }
@@ -25,13 +20,8 @@ This pattern is used everywhere:
 ---
 ### Dependency Injection
 
-**The problem:**
-When a class creates its own dependencies (`new DbContext(...)`, `new HttpClient()`), it owns their lifecycle, locks itself to specific implementations, and becomes nearly impossible to swap out for tests. The codebase ends up with hidden coupling and duplicated `using` blocks for resource cleanup.
+**Dependency Injection (DI)** flips construction: objects declare what they need as constructor or method parameters, and a container provides them at runtime. When a class creates its own dependencies (`new DbContext(...)`, `new HttpClient()`), it owns their lifecycle, locks itself to specific implementations, and becomes nearly impossible to swap out for tests. ASP.NET Core's built-in container manages instance lifetimes (Singleton / Scoped / Transient) and disposes of disposables automatically — you just declare the dependency.
 
-**What it does:**
-**Dependency Injection (DI)** flips construction: objects declare what they need as constructor or method parameters, and a container provides them at runtime. ASP.NET Core's built-in container manages instance lifetimes (Singleton / Scoped / Transient) and disposes of disposables automatically — you just declare the dependency.
-
-**In code:**
 Services are registered in `Program.cs`:
 ```csharp
 builder.Services.AddSqlite<GoGameShopContext>(connectionString);
@@ -49,13 +39,8 @@ ASP.NET Core sees the `GoGameShopContext` parameter and automatically creates an
 ---
 ### C# Records
 
-**The problem:**
-Most DTOs are pure data — properties, value equality, a `ToString()` for debugging, and nothing else. Writing them as classes means dozens of lines of boilerplate (constructor, properties, `Equals`, `GetHashCode`, `ToString`) per type, and the noise hides what's actually distinctive about each one.
+A `record` is a C# type designed for immutable data. Most DTOs are pure data — properties, value equality, a `ToString()` for debugging, and nothing else. Writing them as classes means dozens of lines of boilerplate (constructor, properties, `Equals`, `GetHashCode`, `ToString`) per type. The compiler auto-generates all of that from the record's property list, turning a 30-line class into a one-liner with the same behavior.
 
-**What it does:**
-A `record` is a C# type designed for immutable data. The compiler auto-generates the constructor, value-based equality, `GetHashCode`, and `ToString` from the property list — turning a 30-line class into a one-liner that still has the same behavior.
-
-**In code:**
 ```csharp
 // Record - very concise, immutable
 public record GameSummaryDto(Guid Id, string Name, string Genre, string Rating, decimal Price, DateOnly ReleaseDate);
@@ -88,7 +73,6 @@ MathOperation add = (a, b) => a + b;
 int result = add(3, 5);  // 8
 ```
 
-**Why it matters:**
 Delegates are the foundation of callbacks, event handling, and LINQ. Every time you write a lambda like `game => game.Price < 30`, you're creating a delegate. The reason `Where()`, `Select()`, `Include()`, and `OrderBy()` can accept lambdas is because their parameters are delegate types (`Func<T, bool>`, `Func<T, TResult>`, etc.).
 
 ---
@@ -166,7 +150,6 @@ game => game.Price < 30
 ---
 ### Generics
 
-**What they are:**
 Generics let you write a class, method, or interface that works with *any* type, specified later by the caller. The type parameter is written in angle brackets: `<T>`.
 
 ```csharp
@@ -181,8 +164,7 @@ List<Game>   games   = new List<Game>();
 
 The `T` is just a placeholder name — it could be `T`, `TResult`, `TEntity`, or anything. By convention `T` is used for a single type parameter.
 
-**Why they're used:**
-Without generics you'd need a separate `GameList`, `GenreList`, `RatingList` class for each type. With generics, one `List<T>` covers all of them. You get type safety (the compiler knows what's inside) without sacrificing reusability.
+Without generics you'd need a separate `GameList`, `GenreList`, `RatingList` class for each type. With generics, one `List<T>` covers all of them, and you still get type safety — the compiler knows what's inside.
 
 **How they appear in this project:**
 
@@ -381,13 +363,8 @@ Reserve exceptions for genuinely unexpected failures — things that shouldn't h
 ---
 ### Fail-Fast Validation
 
-**The problem:**
-Wrapping the entire body of a method in nested `if` blocks pushes the real work two or three indents deep, and intersperses the happy path with error handling. It also wastes work — if the input is invalid, you've already opened a file or hit the database before noticing.
+**Fail-fast validation** (also called *guard clauses*) checks preconditions at the top of the method and returns immediately on the first failure. Wrapping the entire body of a method in nested `if` blocks pushes the real work two or three indents deep and intersperses the happy path with error handling. Guard clauses invert that: the happy path stays at the outermost indent and runs only after every check has passed, and no expensive work happens for bad input.
 
-**What it does:**
-**Fail-fast validation** (also called *guard clauses*) checks preconditions at the top of the method and returns immediately on the first failure. The happy path stays at the outermost indent and runs only after every check has passed — and no expensive work happens for bad input.
-
-**In code:**
 In `FileUploader.UploadFileAsync`, three guards run before any file is written to disk:
 
 ```csharp
@@ -436,18 +413,12 @@ public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string folde
 | **Collect-all errors** | Run all checks, gather every failure, return them together | Form validation where the user needs to fix multiple things at once |
 | **FluentValidation / Data Annotations** | Declare rules on a class; the framework runs them automatically | DTO/model validation at the API boundary (see [Data Annotations & Validation](#data-annotations--validation)) |
 
-The approach in `FileUploader` is fail-fast + result object (not exceptions), because these are **expected, recoverable failures** caused by user input — not bugs. Exceptions are reserved for genuinely unexpected situations.
+The approach in `FileUploader` is fail-fast with a result object (not exceptions), because these are **expected, recoverable failures** caused by user input — not bugs. Exceptions are reserved for genuinely unexpected situations.
 
 ---
 ### LINQ (Language Integrated Query)
 
-**The problem:**
-Filtering, projecting, sorting, and aggregating collections with bare `foreach` loops produces a lot of imperative bookkeeping for a simple intent. The loop body buries *what* you want under *how* to compute it, and there's no way for an ORM to translate a `foreach` into SQL.
-
-**What it does:**
-**LINQ** is a set of C# methods (`Where`, `Select`, `OrderBy`, `Sum`, …) for working with collections in a declarative, chainable style. The same methods work over in-memory collections (`IEnumerable<T>`) and over database queries (`IQueryable<T>`) — EF Core translates the second into SQL automatically.
-
-**Methods:**
+**LINQ** is a set of C# methods (`Where`, `Select`, `OrderBy`, `Sum`, …) for working with collections in a declarative, chainable style. Filtering, projecting, sorting, and aggregating collections with bare `foreach` loops produces a lot of imperative bookkeeping that buries *what* you want under *how* to compute it. LINQ also has a second power: the same methods work over in-memory collections (`IEnumerable<T>`) and over database queries (`IQueryable<T>`). EF Core translates the second into SQL automatically, which is why a `foreach` can never replace a LINQ query for database access.
 
 `All(predicate)` — returns `true` only if every item matches the condition:
 ```csharp
@@ -481,7 +452,6 @@ Most LINQ methods are *deferred* — the query only runs when you iterate (e.g. 
 ---
 ### Common C# Built-in Methods
 
-**What they are:**
 The .NET standard library ships with utility methods on strings, collections, arrays, and more. These are the ones you'll reach for constantly — keep them visible so you don't reinvent them or import a library for what's already in the BCL.
 
 ---
@@ -650,4 +620,3 @@ true.ToString() // "True"
 ```
 
 ---
-

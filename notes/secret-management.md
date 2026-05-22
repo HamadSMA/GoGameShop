@@ -2,32 +2,28 @@
 
 ### Introduction
 
-**The problem:**
 Almost every non-trivial application needs values that must not be made public: a database password, a JWT signing key, a third-party API key, a connection string with credentials baked in. The naive places to put them are also the worst: hardcoded in source (leaks the moment the repo is shared), committed to `appsettings.json` (same problem, with the bonus of being copy-pasted into bug reports), or pasted into a wiki page (sprayed across whoever has access to the wiki). Once a secret is in git history, it is effectively public forever even if removed in a later commit.
 
-**What it does:**
 ASP.NET Core does not store secrets itself. What it does is treat secrets as just another **configuration source**: a layered, ordered set of providers that contribute key/value pairs into a single `IConfiguration`. Different providers are appropriate for different environments (developer laptop, CI build, Azure-hosted production), and the framework merges them so the application code reads them the same way every time. Picking the right provider for each environment is what "secret management" actually means in practice.
 
 The mechanisms covered in this file, in roughly increasing level of operational maturity:
 
-1. **User Secrets** : developer laptop, plaintext outside the repo
-2. **Environment variables** : per-process, works everywhere
-3. **Command-line arguments** : one-off overrides
-4. **Container and Kubernetes secrets** : files or env vars injected by the orchestrator
-5. **Azure Key Vault** : managed cloud secret store
-6. **Azure App Configuration** : centralized config with Key Vault references
-7. **Managed Identity** : the long-term goal of removing secrets entirely by authenticating as the resource itself
+1. **User Secrets**: developer laptop, plaintext outside the repo
+2. **Environment variables**: per-process, works everywhere
+3. **Command-line arguments**: one-off overrides
+4. **Container and Kubernetes secrets**: files or env vars injected by the orchestrator
+5. **Azure Key Vault**: managed cloud secret store
+6. **Azure App Configuration**: centralized config with Key Vault references
+7. **Managed Identity**: the long-term goal of removing secrets entirely by authenticating as the resource itself
 
 What should **never** hold a secret: `appsettings.json`, `appsettings.{Environment}.json`, anything checked into source control, anything in a Docker image layer, anything in a log line.
 
 ---
 ### The Configuration System and Providers
 
-**The problem:**
 Every mechanism below needs to feed values into the same `IConfiguration` that the rest of the application reads from. If each one had its own bespoke API, the application code would be a mess of `if (env == "Dev") userSecrets.Get(...) else if (env == "Azure") keyVault.Get(...)`. The whole point of unified configuration is that the application never knows or cares where a value came from.
 
-**What it does:**
-`IConfiguration` is a layered key/value store built from an ordered list of **configuration providers**. Each provider knows how to read from one source (a JSON file, environment variables, a Key Vault, a database). When the application asks for `Configuration["ConnectionStrings:GoGameShop"]`, the configuration system asks each provider in reverse order : the last provider added wins.
+`IConfiguration` is a layered key/value store built from an ordered list of **configuration providers**. Each provider knows how to read from one source (a JSON file, environment variables, a Key Vault, a database). When the application asks for `Configuration["ConnectionStrings:GoGameShop"]`, the configuration system asks each provider in reverse order: the last provider added wins.
 
 `WebApplication.CreateBuilder(args)` automatically wires up these providers in this order:
 
@@ -55,10 +51,8 @@ The application always reads `Configuration["ConnectionStrings:GoGameShop"]`; th
 ---
 ### User Secrets
 
-**The problem:**
 On a developer laptop, the application needs a real database password and a real client secret to talk to a local Keycloak. Putting these in `appsettings.Development.json` means they get committed. Setting environment variables works but is annoying: every developer has to remember to set them in their shell or IDE, and switching projects means juggling overlapping variable names. A per-project, per-developer store that lives **outside the repo** is the cleanest fit.
 
-**What it does:**
 **User Secrets** is a development-only configuration source that stores values **outside the project directory**, in the current user's profile. The file lives at:
 
 - macOS / Linux: `~/.microsoft/usersecrets/<UserSecretsId>/secrets.json`
@@ -93,25 +87,22 @@ dotnet user-secrets clear
 
 Colons in the key map to nested JSON, exactly as with `appsettings.json`.
 
-**In this project:**
 `Backend/src/GoGameShop.Api/GoGameShop.Api.csproj` has a registered `UserSecretsId`. Local development secrets (Keycloak client secret, any future DB password) go here rather than into `appsettings.Development.json`, so the committed config files keep only non-sensitive defaults.
 
 ---
 ### Environment Variables
 
-**The problem:**
 User Secrets is great on a laptop but does not exist on a CI runner, a Docker container, or an App Service instance, where there is no "user profile" to read from. The lowest-common-denominator way to inject configuration into a process on every OS is the one that has existed since the 1970s: environment variables.
 
-**What it does:**
 ASP.NET Core's environment variable provider reads variables from the process environment and exposes them through `IConfiguration`. Two conventions matter:
 
-- **Nesting** : use **double underscore** `__` instead of a colon. Most shells forbid colons in variable names, so `ConnectionStrings__GoGameShop` maps to the key `ConnectionStrings:GoGameShop`.
-- **Prefix filtering** : `AddEnvironmentVariables(prefix: "MYAPP_")` will only read variables that start with `MYAPP_` and will strip the prefix. The default registration reads all variables, plus a dedicated provider that reads `ASPNETCORE_`-prefixed variables for framework settings.
+- **Nesting**: use **double underscore** `__` instead of a colon. Most shells forbid colons in variable names, so `ConnectionStrings__GoGameShop` maps to the key `ConnectionStrings:GoGameShop`.
+- **Prefix filtering**: `AddEnvironmentVariables(prefix: "MYAPP_")` will only read variables that start with `MYAPP_` and will strip the prefix. The default registration reads all variables, plus a dedicated provider that reads `ASPNETCORE_`-prefixed variables for framework settings.
 
 A few special variables the framework checks before configuration is even built:
-- `ASPNETCORE_ENVIRONMENT` : `Development`, `Staging`, or `Production` (controls which `appsettings.{Env}.json` is loaded and whether User Secrets are read)
-- `ASPNETCORE_URLS` : the URLs Kestrel binds to (e.g. `http://+:8080`)
-- `DOTNET_RUNNING_IN_CONTAINER=true` : set by Microsoft base container images so the runtime knows it is containerized
+- `ASPNETCORE_ENVIRONMENT`: `Development`, `Staging`, or `Production` (controls which `appsettings.{Env}.json` is loaded and whether User Secrets are read)
+- `ASPNETCORE_URLS`: the URLs Kestrel binds to (e.g. `http://+:8080`)
+- `DOTNET_RUNNING_IN_CONTAINER=true`: set by Microsoft base container images so the runtime knows it is containerized
 
 **In code (generic):**
 ```
@@ -139,16 +130,14 @@ services:
 - App Service / Container Apps "application settings" (which are surfaced to the app as environment variables)
 
 **Where it is not:**
-- Long-lived secrets in production. Environment variables on an App Service are stored by Azure but are visible to anyone with `Contributor` on the resource and show up in `az webapp config appsettings list`. A real secret belongs in Key Vault, with the App Service only holding a Key Vault reference (covered below).
+Long-lived secrets in production. Environment variables on an App Service are stored by Azure but are visible to anyone with `Contributor` on the resource and show up in `az webapp config appsettings list`. A real secret belongs in Key Vault, with the App Service only holding a Key Vault reference (covered below).
 
 ---
 ### Command-line Arguments
 
-**The problem:**
-Sometimes you want to override one config value for a single run : try a different connection string, point at a staging Key Vault, flip a feature flag : without touching files or shell variables. Editing `appsettings.json` for a one-off invocation is overkill; setting an env var pollutes the shell.
+Sometimes you want to override one config value for a single run: try a different connection string, point at a staging Key Vault, flip a feature flag, without touching files or shell variables. Editing `appsettings.json` for a one-off invocation is overkill; setting an env var pollutes the shell.
 
-**What it does:**
-`WebApplication.CreateBuilder(args)` registers a command-line configuration provider that reads `args` and turns `--Key=Value` (or `--Key Value`, or `/Key=Value`) into configuration entries. Command-line args are added **last**, so they override every other source : exactly what is wanted for a temporary override.
+`WebApplication.CreateBuilder(args)` registers a command-line configuration provider that reads `args` and turns `--Key=Value` (or `--Key Value`, or `/Key=Value`) into configuration entries. Command-line args are added **last**, so they override every other source: exactly what is wanted for a temporary override.
 
 **In code (generic):**
 ```
@@ -157,16 +146,13 @@ dotnet run -- --ConnectionStrings:GoGameShop="Server=...;Password=hunter2" --Log
 
 The `--` separates `dotnet run`'s own arguments from arguments passed to the app.
 
-**Why this is rarely used for actual secrets:**
-On most operating systems, the command line of a running process is visible to anyone with `ps`. Secrets handed in via `--` end up in shell history and process listings. Useful for "I want to try this connection string just this once," not for production credentials.
+On most operating systems, the command line of a running process is visible to anyone with `ps`. Secrets handed in via `--` end up in shell history and process listings. This approach is useful for "I want to try this connection string just this once," not for production credentials.
 
 ---
 ### Container and Kubernetes Secrets
 
-**The problem:**
 Containers add their own challenge: anything baked into the image (env values in the Dockerfile, files in a `COPY` layer) is permanently part of that image and can be extracted by anyone who pulls it. Secrets have to arrive **at run time**, not at build time, and the runtime (Docker, Kubernetes) needs to be the one putting them there.
 
-**What it does:**
 Two orchestrator-level mechanisms, both of which surface to the application as ordinary configuration sources:
 
 **Docker secrets (Swarm) / bind mounts:**
@@ -192,18 +178,12 @@ K8s secrets are **base64-encoded, not encrypted** by default. Encryption-at-rest
 ---
 ### Azure Key Vault
 
-**The problem:**
-On a developer laptop User Secrets is enough; in production something more robust is needed. Secrets should be:
-- Stored encrypted at rest, in a system designed for it
-- Auditable: who read which secret, when
-- Rotatable: a new version of a secret can be issued without touching the application
-- Access-controlled: only specific identities (and not, say, every contributor on the subscription) can read them
+On a developer laptop User Secrets is enough; in production something more robust is needed. Secrets should be stored encrypted at rest, auditable (who read which secret, when), rotatable (a new version can be issued without touching the application), and access-controlled so only specific identities can read them.
 
-**What it does:**
 **Azure Key Vault** is a managed secret store. It holds three kinds of objects:
-- **Secrets** : arbitrary strings (connection strings, API keys, passwords)
-- **Keys** : cryptographic keys for signing or encryption, usable without ever leaving the vault
-- **Certificates** : TLS certs with rotation built in
+- **Secrets**: arbitrary strings (connection strings, API keys, passwords)
+- **Keys**: cryptographic keys for signing or encryption, usable without ever leaving the vault
+- **Certificates**: TLS certs with rotation built in
 
 Each secret has versions, an enabled/disabled flag, optional expiration, and access logs. RBAC controls who and what can read it; the relevant data-plane role is `Key Vault Secrets User` (read) or `Key Vault Secrets Officer` (read/write).
 
@@ -215,7 +195,7 @@ builder.Configuration.AddAzureKeyVault(
     new DefaultAzureCredential());
 ```
 
-At startup the provider pulls every secret in the vault and exposes them as configuration entries. The vault's naming convention is that **`--` (double dash)** in a secret name becomes `:` in the configuration key : so a secret named `ConnectionStrings--GoGameShop` shows up as `Configuration["ConnectionStrings:GoGameShop"]`. Periods are not allowed in vault names, hence the convention.
+At startup the provider pulls every secret in the vault and exposes them as configuration entries. The vault's naming convention is that **`--` (double dash)** in a secret name becomes `:` in the configuration key: so a secret named `ConnectionStrings--GoGameShop` shows up as `Configuration["ConnectionStrings:GoGameShop"]`. Periods are not allowed in vault names, hence the convention.
 
 **Reloading:**
 Secrets are pulled at startup. To pick up new versions without a restart, pass a reload interval:
@@ -228,19 +208,17 @@ builder.Configuration.AddAzureKeyVault(
 ```
 
 **How the app authenticates to the vault:**
-The next section. The whole point is that the app does **not** carry a secret to read its secrets : that would just shift the problem.
+The next section covers this. The whole point is that the app does **not** carry a secret to read its secrets: that would just shift the problem.
 
 ---
 ### Azure App Configuration
 
-**The problem:**
-Key Vault is for secrets, but most "configuration" is not secret : feature flags, log levels, region settings, retry counts. Putting all of that into Key Vault works but is awkward (Key Vault has per-operation cost, no native feature-flag UI, no environment labels). A separate service for non-secret config that **references** Key Vault for the secret parts is a cleaner split.
+Key Vault is for secrets, but most "configuration" is not secret: feature flags, log levels, region settings, retry counts. Putting all of that into Key Vault works but is awkward (Key Vault has per-operation cost, no native feature-flag UI, no environment labels). A separate service for non-secret config that **references** Key Vault for the secret parts is a cleaner split.
 
-**What it does:**
 **Azure App Configuration** is a centralized key/value store with:
-- **Labels** : the same key can have different values per environment (label `Production`, `Staging`, `Dev`)
-- **Feature flags** : first-class on/off toggles with a UI
-- **Key Vault references** : a key whose value is a pointer to a Key Vault secret; the App Configuration client resolves it transparently
+- **Labels**: the same key can have different values per environment (label `Production`, `Staging`, `Dev`)
+- **Feature flags**: first-class on/off toggles with a UI
+- **Key Vault references**: a key whose value is a pointer to a Key Vault secret; the App Configuration client resolves it transparently
 
 ```csharp
 builder.Configuration.AddAzureAppConfiguration(options =>
@@ -257,15 +235,13 @@ This is essentially "appsettings.json in the cloud, with feature flags and Key V
 ---
 ### Managed Identity
 
-**The problem:**
 Every mechanism above eventually hits the same chicken-and-egg problem: the application needs **some** credential to authenticate to the secret store. A connection string for Key Vault is just another secret. A client ID and client secret for a service principal is just another secret. The only real way out is to make the secret store trust the application's identity directly, without any credential the application has to hold.
 
-**What it does:**
 A **Managed Identity** is an identity that Azure assigns to an Azure resource (App Service, Container App, Function, VM, AKS pod via workload identity). The resource can request a token for itself from the Azure Instance Metadata Service at runtime; nothing about that identity is configured inside the application. Grant that identity `Key Vault Secrets User` on a vault, and the application can read secrets with **zero credentials in code or config**.
 
 Two flavors:
-- **System-assigned** : tied to the lifecycle of the resource; deleted when the resource is deleted. One per resource. Best default.
-- **User-assigned** : a standalone identity that can be attached to multiple resources. Useful when several App Services need the same permissions.
+- **System-assigned**: tied to the lifecycle of the resource; deleted when the resource is deleted. One per resource. Best default.
+- **User-assigned**: a standalone identity that can be attached to multiple resources. Useful when several App Services need the same permissions.
 
 **How the application uses it:**
 `DefaultAzureCredential` from the `Azure.Identity` package walks an ordered list of credential sources and uses the first one that works:
@@ -273,7 +249,7 @@ Two flavors:
 1. Environment variables (a service principal, if set)
 2. Workload identity (Kubernetes federation)
 3. Managed identity (when running on Azure)
-4. Azure CLI (`az login`) : matches the developer logged into `az` locally
+4. Azure CLI (`az login`): matches the developer logged into `az` locally
 5. Visual Studio / Rider sign-in
 6. Interactive browser
 
@@ -287,16 +263,13 @@ builder.Configuration.AddAzureKeyVault(
 
 The same line works in dev (against the developer's `az login` identity, which must be granted `Key Vault Secrets User` on a dev vault) and in prod (against the App Service's managed identity).
 
-**In this project:**
 Phase 5 will set up a managed identity on the App Service, grant it `Key Vault Secrets User` on a project Key Vault, store the production database password and Keycloak client secret there, and have `DefaultAzureCredential` resolve to the App Service's identity. Locally, the same code will resolve to `az login`, against a dev-only vault.
 
 ---
 ### Configuration Source Ordering
 
-**The problem:**
 With this many sources potentially holding the same key, it has to be predictable which one wins. Surprises here turn into "why does the production app keep connecting to the dev database" incidents.
 
-**What it does:**
 The default order set up by `WebApplication.CreateBuilder` is, from lowest to highest precedence (later wins):
 
 1. `appsettings.json`
@@ -322,4 +295,4 @@ For local dev:
 4. Environment variables (Docker Compose values for `localinfra`)
 5. Command-line arguments
 
-A useful rule of thumb: **the less sensitive a value is, the lower in the stack it should live.** Committed defaults at the bottom, environment-specific config above them, secrets at the top : added by a provider that is itself secured by identity (Managed Identity into Key Vault), not by another secret.
+A useful rule of thumb: **the less sensitive a value is, the lower in the stack it should live.** Committed defaults at the bottom, environment-specific config above them, secrets at the top: added by a provider that is itself secured by identity (Managed Identity into Key Vault), not by another secret.

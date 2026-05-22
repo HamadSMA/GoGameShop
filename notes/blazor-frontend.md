@@ -2,24 +2,17 @@
 
 ### What Is Blazor
 
-**The problem:**
-Building a UI for an ASP.NET Core API would traditionally mean context-switching to a completely separate JavaScript ecosystem — a React or Vue app with its own toolchain, packages, and language. For a .NET developer, that doubles the mental load before a single component is written.
+Building a UI for an ASP.NET Core API would traditionally mean context-switching to a completely separate JavaScript ecosystem: a React or Vue app with its own toolchain, packages, and language. For a .NET developer, that doubles the mental load before a single component is written.
 
-**What it does:**
-Blazor is the .NET framework for building interactive web UIs in C#. Instead of `.tsx`/`.vue` files, you write **Razor components** (`.razor` files) that mix HTML markup with C# logic in one file. The component model is similar in concept to React — composable, data-driven, event-driven — but the language is C# and the compilation is handled by the .NET SDK.
+Blazor is the .NET framework for building interactive web UIs in C#. Instead of `.tsx`/`.vue` files, you write **Razor components** (`.razor` files) that mix HTML markup with C# logic in one file. The component model is similar in concept to React (composable, data-driven, event-driven) but the language is C# and the compilation is handled by the .NET SDK.
 
-**How it fits the project:**
-`GoGameShop.Frontend` is a Blazor app (net10, Static SSR) that will serve as the user-facing storefront — product listings, game detail pages, basket, and Keycloak-authenticated checkout. It calls the `GoGameShop.Api` backend over HTTP and lives at `http://localhost:5003` in development.
+`GoGameShop.Frontend` is a Blazor app (net10, Static SSR) that serves as the user-facing storefront: product listings, game detail pages, basket, and Keycloak-authenticated checkout. It calls the `GoGameShop.Api` backend over HTTP and lives at `http://localhost:5003` in development.
 
 ---
 
 ### Razor Components
 
-**The problem:**
-HTML is static markup; a Razor component needs to mix markup with C# logic, event handling, and data binding — all in one file without becoming unreadable.
-
-**What it does:**
-A `.razor` file has three optional sections, separated by blocks:
+HTML is static markup; a Razor component needs to mix markup with C# logic, event handling, and data binding, all in one file without becoming unreadable. A `.razor` file has three optional sections:
 
 ```razor
 @page "/games"                     @* route directive — makes this page routable *@
@@ -44,17 +37,13 @@ Key rules:
 - Lifecycle methods (`OnInitializedAsync`, `OnParametersSetAsync`) are overrides on the base class `ComponentBase`
 - Components that aren't pages have no `@page` directive and are used like HTML tags: `<GameCard Game="item" />`
 
-**In the project:**
 The scaffold has `App.razor` (the root HTML shell), `Routes.razor` (the router), `_Imports.razor` (global using directives for all components), and starter pages in `Components/Pages/`.
 
 ---
 
 ### Blazor Hosting Models
 
-**The problem:**
 "Blazor" is actually three different execution models, and choosing the wrong one affects performance, SEO, bundle size, and what C# APIs are available.
-
-**What the options are:**
 
 | Model | Where C# runs | How HTML reaches the browser | Notes |
 |---|---|---|---|
@@ -63,11 +52,9 @@ The scaffold has `App.razor` (the root HTML shell), `Routes.razor` (the router),
 | **Blazor WebAssembly** | Browser via .NET WASM | Downloads .NET runtime + app (~5–10 MB initial load) | Fully client-side; no server required after download |
 | **Blazor Web App (auto)** | Starts as SSR, upgrades to WASM | SSR on first load, WASM takes over once downloaded | Best of both; most complex to configure |
 
-**What Static SSR does:**
-Each navigation request renders the component tree to HTML on the server and sends it to the browser — there's no live server connection and no WASM download. Forms work via standard HTTP POST with antiforgery tokens; for any interactivity (dropdowns, live search) individual components can opt into Server or WASM rendering with `@rendermode`.
+**Static SSR** renders the component tree to HTML on the server for each navigation request and sends it to the browser. There's no live server connection and no WASM download. Forms work via standard HTTP POST with antiforgery tokens; for any interactivity (dropdowns, live search) individual components can opt into Server or WASM rendering with `@rendermode`.
 
-**Why Static SSR here:**
-It's the simplest model: one server, familiar request/response semantics, no WASM download, good SEO. The storefront's read-heavy pages (catalogue, game detail) don't need real-time interactivity — they render once per request, which Static SSR handles well.
+Static SSR is used here because it's the simplest model: one server, familiar request/response semantics, no WASM download, good SEO. The storefront's read-heavy pages (catalogue, game detail) don't need real-time interactivity; they render once per request.
 
 **The `Program.cs` registration:**
 ```csharp
@@ -78,17 +65,15 @@ app.MapStaticAssets();                   // serves wwwroot/ with fingerprinted U
 app.MapRazorComponents<App>();           // App.razor is the root; discovers all routable pages
 ```
 
-`BlazorDisableThrowNavigationException` in the `.csproj` suppresses a navigation exception that fires during SSR when a component redirects — it would otherwise crash the render pipeline before the redirect can complete.
+`BlazorDisableThrowNavigationException` in the `.csproj` suppresses a navigation exception that fires during SSR when a component redirects; it would otherwise crash the render pipeline before the redirect can complete.
 
 ---
 
 ### Keycloak Integration — The `gogameshop-frontend` Client
 
-**The problem:**
-The frontend needs to log users in via Keycloak so that API calls can carry a valid JWT. But a web app hosted on a server is different from a JavaScript SPA or a mobile app — it can keep a secret, which changes which OAuth flow it uses.
+The frontend needs to log users in via Keycloak so that API calls can carry a valid JWT. A web app hosted on a server is different from a JavaScript SPA or a mobile app: it can keep a secret, which changes which OAuth flow it uses.
 
-**What it does:**
-The `gogameshop-frontend` Keycloak client is a **confidential client**: it has a `clientSecret` and is not marked `publicClient`. This matters because ASP.NET Core's OpenID Connect (OIDC) middleware runs server-side and can securely store the secret — unlike a browser-hosted SPA, where the secret would be visible to anyone who opens DevTools.
+The `gogameshop-frontend` Keycloak client is a **confidential client**: it has a `clientSecret` and is not marked `publicClient`. ASP.NET Core's OpenID Connect (OIDC) middleware runs server-side and can securely store the secret, unlike a browser-hosted SPA where the secret would be visible to anyone who opens DevTools.
 
 The OIDC flow the frontend uses:
 1. User visits a protected page → middleware redirects to Keycloak's login page
@@ -114,19 +99,17 @@ The `postman` client in the same realm allows Postman to authenticate against th
 }
 ```
 
-`MetadataAddress` is the OIDC discovery document — the middleware fetches it at startup to find the authorization endpoint, token endpoint, and JWKS URI automatically. This is the same discovery document approach the API uses for JWT validation, just consumed by the OIDC middleware instead of the JWT bearer middleware.
+`MetadataAddress` is the OIDC discovery document; the middleware fetches it at startup to find the authorization endpoint, token endpoint, and JWKS URI automatically. This is the same discovery document approach the API uses for JWT validation, just consumed by the OIDC middleware instead of the JWT bearer middleware.
 
 ---
 
 ### Token Storage in Static SSR — The Cookie Session
 
-**The problem:**
-In a browser-hosted SPA, the access token lives in `localStorage` or `sessionStorage` and gets attached to fetch calls by JavaScript. In Static SSR there's no persistent JavaScript — every request is a fresh HTTP round-trip. The token has to travel with the request some other way.
+In a browser-hosted SPA, the access token lives in `localStorage` or `sessionStorage` and gets attached to fetch calls by JavaScript. In Static SSR there's no persistent JavaScript: every request is a fresh HTTP round-trip, and the token has to travel with the request some other way.
 
-**What it does:**
 ASP.NET Core's cookie authentication middleware stores the access token, refresh token, and expiry inside the **encrypted session cookie**. The cookie travels with every request automatically (the browser sends it), the middleware decrypts it and reconstructs the principal, and the token is available via `HttpContext.GetTokenAsync("access_token")`.
 
-The cookie is encrypted with ASP.NET Core Data Protection — the browser only ever sees opaque bytes, never the raw token. This is why it's safe: the token never touches browser storage or JavaScript.
+The cookie is encrypted with ASP.NET Core Data Protection; the browser only ever sees opaque bytes, never the raw token. That's why it's safe: the token never touches browser storage or JavaScript.
 
 **The chain:**
 1. OIDC middleware completes the authorization code exchange and receives the access + refresh tokens
@@ -138,10 +121,8 @@ The cookie is encrypted with ASP.NET Core Data Protection — the browser only e
 
 ### `CookieOidcRefresher` — Proactive Token Refresh
 
-**The problem:**
-Access tokens are short-lived (typically 5–15 minutes). The session cookie lives much longer (days or weeks). Without intervention, the access token inside the cookie quietly expires while the session cookie is still valid — and the next API call with that stale token gets a `401`. The user has a valid session but all authenticated requests fail.
+Access tokens are short-lived (typically 5–15 minutes). The session cookie lives much longer (days or weeks). Without intervention, the access token inside the cookie quietly expires while the session cookie is still valid, and the next API call with that stale token gets a `401`. The user has a valid session but all authenticated requests fail.
 
-**What it does:**
 `CookieOidcRefresher` is a service called from the cookie authentication's `OnValidatePrincipal` event. Every time a request arrives and the cookie middleware validates the cookie, this class checks whether the access token expires within the next 5 minutes. If it does, it proactively hits the token endpoint directly (`grant_type=refresh_token`) to get a fresh access token before the current request continues.
 
 ```csharp
@@ -172,22 +153,19 @@ context.Properties.UpdateTokenValue("expires_at", newExpiry.ToString("o"));
 context.ShouldRenew = true; // tells the cookie middleware to reissue the cookie
 ```
 
-The backchannel call (`opts.Backchannel`) uses the OIDC middleware's own `HttpClient` — it already has the token endpoint URL from the discovery document and the correct timeouts. `context.ShouldRenew = true` tells the cookie middleware to write an updated cookie in the response, so the fresh tokens replace the expiring ones.
+The backchannel call (`opts.Backchannel`) uses the OIDC middleware's own `HttpClient`; it already has the token endpoint URL from the discovery document and the correct timeouts. `context.ShouldRenew = true` tells the cookie middleware to write an updated cookie in the response, so the fresh tokens replace the expiring ones.
 
 If the refresh fails (e.g. the refresh token itself has expired), `RejectPrincipal()` marks the session invalid and the next request triggers a redirect to Keycloak's login page.
 
-**Why this approach:**
-It's pull-based — tokens are refreshed on the request that needs them, not on a background timer. That means no background thread, no race conditions, and no wasted refreshes during idle periods. The 5-minute window gives the current request enough time to complete with the existing token even if the refresh call takes a moment.
+This approach is pull-based: tokens are refreshed on the request that needs them, not on a background timer. That means no background thread, no race conditions, and no wasted refreshes during idle periods. The 5-minute window gives the current request enough time to complete with the existing token even if the refresh call takes a moment.
 
 ---
 
 ### `ApiAuthorizationHandler` — Attaching the Bearer Token to API Calls
 
-**The problem:**
-The frontend makes HTTP calls to the `GoGameShop.Api` backend to fetch game data, the basket, etc. The API's endpoints are protected — they require a `Bearer` token in the `Authorization` header. The question is: where does that token come from and how does it get onto every outgoing request without duplicating the lookup in every service class?
+The frontend makes HTTP calls to the `GoGameShop.Api` backend to fetch game data, the basket, etc. The API's endpoints are protected: they require a `Bearer` token in the `Authorization` header. The question is where that token comes from and how it gets onto every outgoing request without duplicating the lookup in every service class.
 
-**What it does:**
-`ApiAuthorizationHandler` is a **DelegatingHandler** — .NET's name for HttpClient middleware. A DelegatingHandler wraps an inner handler and runs code before and after every HTTP call made through a registered `HttpClient`. This one reads the access token from the current request's cookie session and sets the `Authorization` header:
+`ApiAuthorizationHandler` is a **DelegatingHandler**, .NET's name for HttpClient middleware. A DelegatingHandler wraps an inner handler and runs code before and after every HTTP call made through a registered `HttpClient`. This one reads the access token from the current request's cookie session and sets the `Authorization` header:
 
 ```csharp
 public class ApiAuthorizationHandler(IHttpContextAccessor httpContextAccessor)
@@ -207,7 +185,7 @@ public class ApiAuthorizationHandler(IHttpContextAccessor httpContextAccessor)
 ```
 
 **`IHttpContextAccessor` — why it's needed:**
-In Static SSR, components run on the server during the request, but `HttpClient` instances are singletons shared across requests — they don't inherently know which request's session to read from. `IHttpContextAccessor` provides access to the ambient `HttpContext` for the current request, bridging the gap between the singleton `HttpClient` and the per-request cookie session.
+In Static SSR, components run on the server during the request, but `HttpClient` instances are singletons shared across requests; they don't inherently know which request's session to read from. `IHttpContextAccessor` provides access to the ambient `HttpContext` for the current request, bridging the gap between the singleton `HttpClient` and the per-request cookie session.
 
 **How it fits into the chain:**
 ```
@@ -217,16 +195,14 @@ Component calls Http.GetFromJsonAsync(...)
       → GoGameShop.Api (receives Bearer token)
 ```
 
-The handler is registered on a named or typed `HttpClient` in `Program.cs`. Once wired up, any service that injects that `HttpClient` gets authenticated calls for free — no per-service token lookup needed.
+The handler is registered on a named or typed `HttpClient` in `Program.cs`. Once wired up, any service that injects that `HttpClient` gets authenticated calls for free: no per-service token lookup needed.
 
 ---
 
 ### Typed HTTP Clients — `GamesClient`, `LookupClient`, `ServerBasketClient`
 
-**The problem:**
-The frontend needs to call multiple API endpoints — games, genres, ratings, baskets. Injecting a raw `HttpClient` everywhere and repeating URL construction, JSON deserialization, and error handling in each component is noisy and error-prone.
+The frontend needs to call multiple API endpoints: games, genres, ratings, baskets. Injecting a raw `HttpClient` everywhere and repeating URL construction, JSON deserialization, and error handling in each component is noisy and error-prone.
 
-**What it does:**
 A **typed HTTP client** is a plain class that takes `HttpClient` as a constructor parameter. `IHttpClientFactory` creates and manages the underlying `HttpClient` instance; the typed class just uses it. Each client in `Clients/` owns one API resource:
 
 ```csharp
@@ -243,7 +219,7 @@ public class GamesClient(HttpClient http)
 }
 ```
 
-`GamesClient` also handles the multipart form-data requirement for create/update — it builds `MultipartFormDataContent` from a `GameFormModel` (including the optional image file stream) so components never have to construct it directly.
+`GamesClient` also handles the multipart form-data requirement for create/update: it builds `MultipartFormDataContent` from a `GameFormModel` (including the optional image file stream) so components never have to construct it directly.
 
 **Registration in `Program.cs`:**
 ```csharp
@@ -251,22 +227,20 @@ builder.Services.AddHttpClient<GamesClient>(c => c.BaseAddress = new Uri(apiBase
     .AddHttpMessageHandler<ApiAuthorizationHandler>();
 ```
 
-`AddHttpClient<TClient>()` registers the typed client and its `HttpClient` with `IHttpClientFactory`. The `BaseAddress` is set once here — all relative URLs inside the client resolve against it. `.AddHttpMessageHandler<ApiAuthorizationHandler>()` chains the Bearer token injector onto every call made through that client. The same pattern is repeated for `LookupClient` and `ServerBasketClient`.
+`AddHttpClient<TClient>()` registers the typed client and its `HttpClient` with `IHttpClientFactory`. The `BaseAddress` is set once here; all relative URLs inside the client resolve against it. `.AddHttpMessageHandler<ApiAuthorizationHandler>()` chains the Bearer token injector onto every call made through that client. The same pattern is repeated for `LookupClient` and `ServerBasketClient`.
 
 **`ApiAuthorizationHandler` must be `Transient`:**
 ```csharp
 builder.Services.AddTransient<ApiAuthorizationHandler>();
 ```
-`IHttpClientFactory` manages handler lifetimes independently — it requires handlers to be transient so it can control how they are reused and pooled. Registering as `Scoped` or `Singleton` causes a runtime error.
+`IHttpClientFactory` manages handler lifetimes independently; it requires handlers to be transient so it can control how they are reused and pooled. Registering as `Scoped` or `Singleton` causes a runtime error.
 
 ---
 
 ### Frontend Models — Records vs Mutable Class
 
-**The problem:**
 The frontend needs two kinds of types: shapes that represent API responses (read from JSON, never mutated), and a shape that Blazor's `EditForm` can bind to (needs settable properties).
 
-**What it does:**
 All API response types are **records** — immutable by default, with positional constructors that match the JSON field names:
 
 ```csharp
@@ -274,22 +248,20 @@ public record GameSummaryDto(Guid Id, string Name, string Genre, decimal Price, 
 public record BasketItemDto(Guid Id, string Name, decimal Price, int Quantity, string ImageUri);
 ```
 
-Records support `with` expressions, which create a modified copy without mutating the original — useful in `BasketState` for updating a quantity inline:
+Records support `with` expressions, which create a modified copy without mutating the original, useful in `BasketState` for updating a quantity inline:
 
 ```csharp
 items.Select(i => i.Id == gameId ? i with { Quantity = i.Quantity + 1 } : i)
 ```
 
-`GameFormModel` is the exception — a **mutable class** with `{ get; set; }` properties. Blazor's `EditForm` / two-way `@bind` requires settable properties; records' init-only setters aren't enough for form binding.
+`GameFormModel` is the exception: a **mutable class** with `{ get; set; }` properties. Blazor's `EditForm` / two-way `@bind` requires settable properties; records' init-only setters aren't enough for form binding.
 
 ---
 
 ### `BasketState` — Scoped In-Memory Cache
 
-**The problem:**
-Multiple components on the same page may need the basket: a navbar shows item count, a basket page shows the full list. Without coordination, each component would fire its own API call — wasted round-trips for the same data within a single render.
+Multiple components on the same page may need the basket: a navbar shows item count, a basket page shows the full list. Without coordination, each component would fire its own API call, which is wasted round-trips for the same data within a single render.
 
-**What it does:**
 `BasketState` is a **scoped service** (one instance per HTTP request). The first call to `GetBasketAsync()` fetches the basket from the API and caches it in `_cache`. Every subsequent call within the same request returns the cached value:
 
 ```csharp
@@ -312,7 +284,7 @@ private async Task Sync(IEnumerable<UpsertBasketItemDto> items)
 }
 ```
 
-`OnChange` is an `event Action?` — components subscribe to it in `OnInitialized` and call `StateHasChanged()` in the handler so their UI updates (e.g., a basket count badge in the navbar refreshes immediately after an add).
+`OnChange` is an `event Action?`. Components subscribe to it in `OnInitialized` and call `StateHasChanged()` in the handler so their UI updates (e.g., a basket count badge in the navbar refreshes immediately after an add).
 
 **User identity:**
 ```csharp
@@ -322,16 +294,15 @@ private Guid UserId =>
         out var id) ? id : Guid.Empty;
 ```
 
-Keycloak's user ID arrives in the `sub` claim. With `MapInboundClaims = false` in the OIDC options, claim names are kept exactly as the token delivers them — `"sub"`, `"name"`, `"role"` — instead of being remapped to Microsoft's long URL equivalents (e.g. `ClaimTypes.NameIdentifier` = `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier`). That means `FindFirstValue("sub")` is the correct lookup; `ClaimTypes.NameIdentifier` would silently return null because no claim with that URL name exists.
+Keycloak's user ID arrives in the `sub` claim. With `MapInboundClaims = false` in the OIDC options, claim names are kept exactly as the token delivers them (`"sub"`, `"name"`, `"role"`) instead of being remapped to Microsoft's long URL equivalents (e.g. `ClaimTypes.NameIdentifier` = `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier`). That means `FindFirstValue("sub")` is the correct lookup; `ClaimTypes.NameIdentifier` would silently return null because no claim with that URL name exists.
 
 ---
 
 ### `Program.cs` — The Full Auth Stack
 
-**The problem:**
 Wiring cookie + OIDC authentication in one `Program.cs` involves several options that interact with each other. Getting one wrong (e.g., forgetting `SaveTokens`, wrong `ResponseType`, wrong `SignInScheme`) silently breaks different parts of the flow.
 
-**What it does — annotated:**
+**Annotated:**
 ```csharp
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme) // cookie is the default scheme
@@ -382,17 +353,15 @@ app.MapPost("/logout", async (HttpContext ctx) =>
         new AuthenticationProperties { RedirectUri = "/" });
 }).RequireAuthorization();
 ```
-Two sign-outs are required: the first clears the local session cookie; the second hits Keycloak's end-session endpoint, invalidating the Keycloak session so the user can't silently re-authenticate without entering credentials again. Order matters — cookie first, then OIDC.
+Two sign-outs are required: the first clears the local session cookie; the second hits Keycloak's end-session endpoint, invalidating the Keycloak session so the user can't silently re-authenticate without entering credentials again. Order matters: cookie first, then OIDC.
 
 ---
 
 ### `CascadingAuthenticationState` and `AuthorizeRouteView`
 
-**The problem:**
-Components like `<AuthorizeView>` and pages that declare `[Authorize]` need access to the current authentication state. But individual components have no way to look up the state on their own — they'd need a service injection in every file, and the routing layer has no built-in hook to enforce auth attributes before a page renders.
+Components like `<AuthorizeView>` and pages that declare `[Authorize]` need access to the current authentication state. But individual components have no way to look up the state on their own; they'd need a service injection in every file, and the routing layer has no built-in hook to enforce auth attributes before a page renders.
 
-**What it does:**
-`CascadingAuthenticationState` is a wrapper component placed at the root of the tree (in `App.razor`) that broadcasts a `Task<AuthenticationState>` downward as a cascading value. Any descendant can receive it with `[CascadingParameter] private Task<AuthenticationState> AuthState { get; set; }` — no injection needed.
+`CascadingAuthenticationState` is a wrapper component placed at the root of the tree (in `App.razor`) that broadcasts a `Task<AuthenticationState>` downward as a cascading value. Any descendant can receive it with `[CascadingParameter] private Task<AuthenticationState> AuthState { get; set; }`, with no injection needed.
 
 `AuthorizeRouteView` replaces `RouteView` in `Routes.razor`. Before rendering a page, it checks for `[Authorize]` or `[Authorize(Roles = "...")]` attributes. If the user doesn't meet the requirement, it redirects to the configured login path instead of rendering the page.
 
@@ -414,11 +383,9 @@ Without `CascadingAuthenticationState`, `AuthorizeRouteView` and `<AuthorizeView
 
 ### `<AuthorizeView>` — Conditional Rendering by Auth State
 
-**The problem:**
 Some UI belongs only to signed-in users (the game grid, the cart badge, the logout button). Some belongs only to guests (the login link, a "sign in to browse" CTA). Hard-coding this with null checks on a service would scatter auth logic into every component.
 
-**What it does:**
-`<AuthorizeView>` renders its `<Authorized>` child content when the user is authenticated and `<NotAuthorized>` when they're not. An optional `Roles` attribute narrows it further — only users in that role see the `<Authorized>` block.
+`<AuthorizeView>` renders its `<Authorized>` child content when the user is authenticated and `<NotAuthorized>` when they're not. An optional `Roles` attribute narrows it further: only users in that role see the `<Authorized>` block.
 
 ```razor
 @* Home.razor — game grid for signed-in users, CTA for guests *@
@@ -437,17 +404,15 @@ Some UI belongs only to signed-in users (the game grid, the cart badge, the logo
 </AuthorizeView>
 ```
 
-`context` inside `<Authorized>` is a `AuthenticationState` — you can read claims from it: `context.User.FindFirst("email")?.Value`.
+`context` inside `<Authorized>` is a `AuthenticationState`; you can read claims from it: `context.User.FindFirst("email")?.Value`.
 
 ---
 
 ### `[Authorize]` — Page-Level Authorization
 
-**The problem:**
 `<AuthorizeView>` hides content, but it doesn't stop a user from navigating directly to a URL. A guest who knows the `/cart` URL would still see the page render.
 
-**What it does:**
-`[Authorize]` is an attribute placed on a page component. `AuthorizeRouteView` checks it before the page renders — unauthenticated users are redirected to the login path instead of reaching the component's `OnInitializedAsync` at all. `[Authorize(Roles = "Admin")]` restricts further to a specific role.
+`[Authorize]` is an attribute placed on a page component. `AuthorizeRouteView` checks it before the page renders: unauthenticated users are redirected to the login path instead of reaching the component's `OnInitializedAsync` at all. `[Authorize(Roles = "Admin")]` restricts further to a specific role.
 
 ```razor
 @page "/cart"
@@ -463,10 +428,8 @@ This is the difference from `<AuthorizeView>`: `<AuthorizeView>` controls what's
 
 ### `[SupplyParameterFromQuery]` — Query String Parameters
 
-**The problem:**
 Pagination (`?page=2`) and search (`?name=zelda`) live in the URL query string. Parsing `HttpContext.Request.Query` manually in every component that needs them is repetitive and type-unsafe.
 
-**What it does:**
 `[SupplyParameterFromQuery]` maps a query string key to a component property automatically. Blazor reads the value from the URL, converts it to the declared type, and sets the property before `OnInitializedAsync` runs. The `Name` argument overrides the key name when it differs from the property name.
 
 ```csharp
@@ -480,13 +443,11 @@ For `?page=3&name=zelda`, Blazor sets `page = 3` and `name = "zelda"` automatica
 
 ### Form Handling in Static SSR — `@formname`, `[SupplyParameterFromForm]`, `AntiforgeryToken`
 
-**The problem:**
-Static SSR has no persistent JavaScript — all user actions go through standard HTML form POST. When a page has a single form (e.g. an edit form or an add-to-cart form on a game detail page), there needs to be a way to tell the server which form was submitted and bind its fields to a C# model.
+Static SSR has no persistent JavaScript: all user actions go through standard HTML form POST. When a page has a single form (e.g. an edit form or an add-to-cart form on a game detail page), there needs to be a way to tell the server which form was submitted and bind its fields to a C# model.
 
-**What it does:**
 `@formname="foo"` gives a Razor form a name. On POST, Blazor reads a hidden field that carries this name and routes the posted values to the matching `[SupplyParameterFromForm(FormName = "foo")]` parameter. Properties on the bound model are populated from the form fields by name.
 
-`<AntiforgeryToken />` renders a hidden CSRF token field that `app.UseAntiforgery()` validates on every POST — without it, the middleware rejects the request.
+`<AntiforgeryToken />` renders a hidden CSRF token field that `app.UseAntiforgery()` validates on every POST; without it, the middleware rejects the request.
 
 ```razor
 <form method="post" @formname="add-to-cart">
@@ -510,7 +471,7 @@ protected override async Task OnInitializedAsync()
 ```
 
 **The `@formname` uniqueness constraint:**
-Every `@formname` on a page must be unique. Blazor throws at runtime — "Cannot submit the form 'remove-item' because no form on the page currently has that name" — when multiple forms share the same name, which happens naturally in a `@foreach` loop:
+Every `@formname` on a page must be unique. Blazor throws at runtime ("Cannot submit the form 'remove-item' because no form on the page currently has that name") when multiple forms share the same name, which happens naturally in a `@foreach` loop:
 
 ```razor
 @foreach (var item in basket.Items)
@@ -543,16 +504,14 @@ app.MapPost("/basket/remove", async (HttpContext ctx, BasketState basket) =>
 </form>
 ```
 
-`app.UseAntiforgery()` in the pipeline validates the antiforgery token automatically for these endpoints — no attribute needed. The same pattern works for `/basket/add` (from any listing page) and `/basket/update`. The page `@code` block is reduced to just loading data on GET, with no form-handling logic.
+`app.UseAntiforgery()` in the pipeline validates the antiforgery token automatically for these endpoints; no attribute needed. The same pattern works for `/basket/add` (from any listing page) and `/basket/update`. The page `@code` block is reduced to just loading data on GET, with no form-handling logic.
 
 ---
 
 ### Parallel Data Fetching with `Task.WhenAll`
 
-**The problem:**
-A page that needs data from two endpoints awaits them sequentially by default — the second call doesn't start until the first completes. On a page like the home page that needs both the genre list and the game results, that doubles the perceived latency for no reason.
+A page that needs data from two endpoints awaits them sequentially by default: the second call doesn't start until the first completes. On a page like the home page that needs both the genre list and the game results, that doubles the perceived latency for no reason.
 
-**What it does:**
 `Task.WhenAll` starts both tasks at the same time and waits for both to finish before continuing. The total time is the duration of the slower call, not the sum of both.
 
 ```csharp
@@ -568,16 +527,14 @@ protected override async Task OnInitializedAsync()
 }
 ```
 
-The second pair of `await` calls don't make new HTTP requests — `Task.WhenAll` already awaited completion, so awaiting the individual tasks just unwraps their cached results. This pattern works any time two or more API calls have no dependency on each other.
+The second pair of `await` calls don't make new HTTP requests; `Task.WhenAll` already awaited completion, so awaiting the individual tasks just unwraps their cached results. This pattern works any time two or more API calls have no dependency on each other.
 
 ---
 
 ### `[SupplyParameterFromQuery]` — Multi-Filter Query String Composition
 
-**The problem:**
-A page with multiple independent URL filters (genre, name search, page number) needs to preserve all active filters when the user changes just one of them — clicking page 3 shouldn't lose the active genre, and clicking a genre shouldn't lose the current search term.
+A page with multiple independent URL filters (genre, name search, page number) needs to preserve all active filters when the user changes just one of them: clicking page 3 shouldn't lose the active genre, and clicking a genre shouldn't lose the current search term.
 
-**What it does:**
 Each filter maps to its own `[SupplyParameterFromQuery]` property. Links and pagination are built by composing only the non-null values into a query string:
 
 ```csharp
@@ -627,10 +584,8 @@ var filtered = dbContext.Games.Where(game =>
 
 ### `[StreamRendering]` — Incremental HTML Delivery
 
-**The problem:**
-A page that awaits an API call makes the browser wait for the entire response before showing anything — the user sees a blank screen for however long the API takes.
+A page that awaits an API call makes the browser wait for the entire response before showing anything: the user sees a blank screen for however long the API takes.
 
-**What it does:**
 `[StreamRendering]` on a page component tells Blazor to flush the initial HTML to the browser immediately, including whatever the component renders before its first `await`. The component then streams updated HTML as async operations complete.
 
 ```razor
@@ -647,17 +602,15 @@ else
 }
 ```
 
-The user sees "Loading..." almost instantly instead of staring at nothing. This works because HTTP supports chunked transfer encoding — the server sends pieces of the response body as they become available rather than buffering the whole thing.
+The user sees "Loading..." almost instantly instead of staring at nothing. This works because HTTP supports chunked transfer encoding: the server sends pieces of the response body as they become available rather than buffering the whole thing.
 
 ---
 
 ### The `Pagination` Component — Shared Child Components
 
-**The problem:**
-Both `Home.razor` and `Catalog.razor` need pagination links. Duplicating the HTML in each page is error-prone — a bug fix or style change would need to be applied in both places.
+Both `Home.razor` and `Catalog.razor` need pagination links. Duplicating the HTML in each page is error-prone: a bug fix or style change would need to be applied in both places.
 
-**What it does:**
-A shared Razor component (no `@page` directive, lives in `Components/`) encapsulates the pagination UI. Parent pages use it like an HTML tag and pass data via `[Parameter]` properties. `[EditorRequired]` marks parameters that must always be provided — the compiler warns if a caller omits them.
+A shared Razor component (no `@page` directive, lives in `Components/`) encapsulates the pagination UI. Parent pages use it like an HTML tag and pass data via `[Parameter]` properties. `[EditorRequired]` marks parameters that must always be provided; the compiler warns if a caller omits them.
 
 ```razor
 @* Pagination.razor *@
@@ -682,7 +635,7 @@ A shared Razor component (no `@page` directive, lives in `Components/`) encapsul
 }
 ```
 
-The optional `Query` parameter lets callers append extra state to page links — Catalog passes `name=zelda` so search terms survive pagination clicks.
+The optional `Query` parameter lets callers append extra state to page links: Catalog passes `name=zelda` so search terms survive pagination clicks.
 
 Usage:
 ```razor
@@ -694,11 +647,7 @@ Usage:
 
 ### Gravatar in `LoginDisplay`
 
-**The problem:**
-The nav needs to show who's logged in. Storing or serving user avatars is a whole feature on its own.
-
-**What it does:**
-[Gravatar](https://gravatar.com) is a global avatar service: you hash an email address with MD5 and embed the hash in an image URL — Gravatar serves whatever avatar the user registered for that email, or a fallback if they have none.
+The nav needs to show who's logged in, but storing or serving user avatars is a whole feature on its own. [Gravatar](https://gravatar.com) is a global avatar service: you hash an email address with MD5 and embed the hash in an image URL, and Gravatar serves whatever avatar the user registered for that email, or a fallback if they have none.
 
 ```csharp
 private static string GravatarUrl(string? email)
@@ -714,7 +663,7 @@ private static string GravatarUrl(string? email)
 
 - `email.Trim().ToLower()` — Gravatar requires the email to be lowercase with no surrounding whitespace before hashing.
 - `d=identicon` — the fallback when no Gravatar is registered: a deterministic geometric pattern generated from the hash, so every user gets a unique-looking avatar automatically.
-- MD5 is fine here — this isn't a security use, just a lookup key. The Gravatar spec defines it.
+- MD5 is fine here: this isn't a security use, just a lookup key. The Gravatar spec defines it.
 
 The email comes from the `"email"` claim on `context.User`, which Keycloak includes because `email` scope was requested in the OIDC options.
 
@@ -722,10 +671,8 @@ The email comes from the `"email"` claim on `context.User`, which Keycloak inclu
 
 ### `FocusOnNavigate` — Post-Navigation Focus Management
 
-**The problem:**
-After a page navigation or form POST, keyboard and screen-reader users need focus to land somewhere meaningful — otherwise tab order starts from the top of the browser chrome, not the page content.
+After a page navigation or form POST, keyboard and screen-reader users need focus to land somewhere meaningful. Otherwise tab order starts from the top of the browser chrome, not the page content.
 
-**What it does:**
 `<FocusOnNavigate Selector="h1" />` in `Routes.razor` automatically focuses the first `<h1>` element after every Blazor navigation. This is a standard accessibility pattern: bring focus to the main heading so screen readers announce the new page and keyboard users don't have to tab through the navbar on every route change.
 
 ```razor
@@ -735,7 +682,7 @@ After a page navigation or form POST, keyboard and screen-reader users need focu
 ```
 
 **Side effect:**
-Browsers show a focus ring (outline) on focused elements by default. `<h1>` elements aren't interactive, so the outline looks wrong — after a form POST that re-renders the same page (e.g. Add to Cart on the game detail page), the heading appears highlighted. Suppress it with CSS without removing focus behavior from interactive elements:
+Browsers show a focus ring (outline) on focused elements by default. `<h1>` elements aren't interactive, so the outline looks wrong. After a form POST that re-renders the same page (e.g. Add to Cart on the game detail page), the heading appears highlighted. Suppress it with CSS without removing focus behavior from interactive elements:
 
 ```css
 h1:focus { outline: none; }
@@ -747,8 +694,7 @@ This only removes the outline on headings. Buttons, inputs, and links still show
 
 ### JavaScript in Static SSR — Button Feedback and Scroll Preservation
 
-**The problem:**
-Static SSR pages reload on every form POST — there's no in-memory state between requests. Two UX problems follow: (1) a button that submits a form gives no visible feedback before the page reloads, leaving the user uncertain if the click registered; (2) if the user was scrolled down a long page, the reload jumps them back to the top.
+Static SSR pages reload on every form POST; there's no in-memory state between requests. Two UX problems follow: a button that submits a form gives no visible feedback before the page reloads, leaving the user uncertain if the click registered; and if the user was scrolled down a long page, the reload jumps them back to the top.
 
 **Button feedback — intercept, show, then submit:**
 Instead of letting the form submit immediately, intercept the click in JS, change the button label, then submit after a short delay. The page reload resets the button to its original state automatically.
@@ -768,7 +714,7 @@ document.querySelectorAll('.js-add-to-cart').forEach(btn => {
 });
 ```
 
-The `dataset.cartBound` guard is necessary because Blazor fires `enhancedload` after every enhanced navigation — without it, each navigation re-runs `_initAddToCart` and stacks a new listener on every button.
+The `dataset.cartBound` guard is necessary because Blazor fires `enhancedload` after every enhanced navigation. Without it, each navigation re-runs `_initAddToCart` and stacks a new listener on every button.
 
 **Scroll preservation — `sessionStorage` across the reload:**
 `sessionStorage` persists across page reloads within the same tab but not across tabs. That makes it the right bridge for "remember where I was before this form POST":
@@ -782,16 +728,14 @@ if (savedY !== null) {
 }
 ```
 
-Save before submit, restore on load, clear immediately after restore — the key is only present for the one reload following the add-to-cart action.
+Save before submit, restore on load, clear immediately after restore. The key is only present for the one reload following the add-to-cart action.
 
 ---
 
 ### Responsive Design in Static SSR
 
-**The problem:**
-Static SSR pages render HTML on the server — there's no client-side JavaScript framework to conditionally mount different component trees for different screen sizes. All responsiveness has to be done in CSS.
+Static SSR pages render HTML on the server; there's no client-side JavaScript framework to conditionally mount different component trees for different screen sizes. All responsiveness has to be done in CSS.
 
-**What it does:**
 Standard `@media` queries handle everything. Three breakpoints cover the layout shifts:
 
 | Breakpoint | Trigger | Key changes |
@@ -812,10 +756,10 @@ The navbar is a `display: flex` row. On mobile, `flex-wrap: wrap` combined with 
 }
 ```
 
-No JavaScript needed — `flex-wrap` and `order` handle it entirely in CSS.
+No JavaScript needed: `flex-wrap` and `order` handle it entirely in CSS.
 
 **Genre sidebar → horizontal pills on mobile:**
-The sidebar is a `position: sticky` column on desktop. On mobile it switches to a static horizontal wrapping row of pills above the grid — the layout change is two rules:
+The sidebar is a `position: sticky` column on desktop. On mobile it switches to a static horizontal wrapping row of pills above the grid. The layout change is two rules:
 
 ```css
 @media (max-width: 768px) {
@@ -825,10 +769,10 @@ The sidebar is a `position: sticky` column on desktop. On mobile it switches to 
 }
 ```
 
-The genre items are already styled as pills — changing `flex-direction` is all that's needed.
+The genre items are already styled as pills; changing `flex-direction` is all that's needed.
 
 **Cart item grid → flex on mobile:**
-The cart item uses a 4-column CSS grid on desktop for aligned columns. On mobile the fixed columns are too narrow, so it switches to `flex-wrap` — the image and name/price stay on the first row, and the quantity + remove forms wrap to a second row naturally:
+The cart item uses a 4-column CSS grid on desktop for aligned columns. On mobile the fixed columns are too narrow, so it switches to `flex-wrap`: the image and name/price stay on the first row, and the quantity + remove forms wrap to a second row naturally:
 
 ```css
 @media (max-width: 768px) {
@@ -838,7 +782,7 @@ The cart item uses a 4-column CSS grid on desktop for aligned columns. On mobile
 ```
 
 **Culture-safe date formatting:**
-`ToShortDateString()` and `ToString("MMMM d, yyyy")` without a culture specifier pick up the server thread's culture — on an Arabic locale this renders dates in the Hijri calendar. Passing `CultureInfo.InvariantCulture` forces Gregorian with English month names regardless of server locale:
+`ToShortDateString()` and `ToString("MMMM d, yyyy")` without a culture specifier pick up the server thread's culture; on an Arabic locale this renders dates in the Hijri calendar. Passing `CultureInfo.InvariantCulture` forces Gregorian with English month names regardless of server locale:
 
 ```razor
 @game.ReleaseDate.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
@@ -848,11 +792,9 @@ The cart item uses a 4-column CSS grid on desktop for aligned columns. On mobile
 
 ### `returnUrl` — Redirect After Login
 
-**The problem:**
-Without a return URL, clicking "Login" on any page always drops the user on `/` after sign-in — they lose their place. A user browsing `/game/abc` who gets logged out mid-session has to navigate back manually after re-authenticating.
+Without a return URL, clicking "Login" on any page always drops the user on `/` after sign-in: they lose their place. A user browsing `/game/abc` who gets logged out mid-session has to navigate back manually after re-authenticating.
 
-**What it does:**
-`LoginDisplay` encodes the current page URL into the login link. The `/login` minimal API reads it back and passes it as `RedirectUri` in the `AuthenticationProperties` — Keycloak uses this as the post-login destination.
+`LoginDisplay` encodes the current page URL into the login link. The `/login` minimal API reads it back and passes it as `RedirectUri` in the `AuthenticationProperties`; Keycloak uses this as the post-login destination.
 
 ```razor
 @* LoginDisplay.razor — encode the current URL into the login link *@
@@ -868,4 +810,4 @@ app.MapGet("/login", (string? returnUrl) =>
     ));
 ```
 
-`Uri.EscapeDataString` percent-encodes the URL so it survives as a query string value — without it, a URL like `/game/abc?page=2` would break the outer query string parsing. `returnUrl ?? "/"` falls back to the home page when the parameter is absent (e.g., clicking login from the nav directly).
+`Uri.EscapeDataString` percent-encodes the URL so it survives as a query string value; without it, a URL like `/game/abc?page=2` would break the outer query string parsing. `returnUrl ?? "/"` falls back to the home page when the parameter is absent (e.g., clicking login from the nav directly).

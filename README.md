@@ -177,14 +177,15 @@ which then calls the backend API via `BasketState`. They all require authenticat
 ```text
 GoGameShop/
 ├── Backend/
+│   ├── .vscode/   # VS Code publish task and App Service deploy settings
 │   ├── src/       # ASP.NET Core Minimal API
 │   └── tests/     # xUnit unit and integration tests
 ├── Frontend/      # Blazor Static SSR frontend
-├── postman/       # Postman workspace (collections, environments)
+├── postman/       # Postman workspace (collections, environments, globals)
 └── .postman/      # Postman backup/config
 ```
 
-Full annotated structure: [notes/01-project-setup.md](notes/01-project-setup.md#project-structure)
+Full annotated structure: [notes/project-setup.md](notes/project-setup.md#project-structure)
 
 ## Tests
 
@@ -203,14 +204,14 @@ Run the whole suite:
 dotnet test Backend/GoGameShop.Api.sln
 ```
 
-Full breakdown of each test and what it proves: [notes/16-testing.md](notes/16-testing.md#tests-in-this-project).
+Full breakdown of each test and what it proves: [notes/testing.md](notes/testing.md#tests-in-this-project).
 
 ### Manual testing
 
 - **HTTP file:** Use `Backend/gogameshop.http` with
   the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension in VS Code or the
   built-in HTTP client in JetBrains Rider.
-- **Postman:** Import collections from the `postman/collections/` directory into Postman.
+- **Postman:** Import collections from `postman/collections/` and environments from `postman/environments/` into Postman. Two environments are provided: `Local` (`http://localhost:5002`) and `Azure` (the deployed App Service URL).
 
 ## License
 

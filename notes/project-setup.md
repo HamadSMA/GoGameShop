@@ -2,25 +2,15 @@
 
 ### ASP.NET Core & Minimal APIs
 
-**The problem:**
-Traditional ASP.NET MVC requires a controller class for every group of endpoints, with attribute-routed methods, model binders, and a fair bit of boilerplate per route. For a small API, that's a lot of ceremony for what amounts to "respond to GET /games."
+ASP.NET Core is Microsoft's framework for building web apps and APIs with C#. Traditional ASP.NET MVC requires a controller class for every group of endpoints, with attribute-routed methods, model binders, and a fair bit of boilerplate per route. A **Minimal API** cuts through that: you register HTTP endpoints as plain lambdas directly on `WebApplication`, `app.MapGet("/games", handler)`, with no controller class, no attributes, and no inherited base. The result is less code per endpoint and a faster path from "I need a route" to a running route.
 
-**What it does:**
-ASP.NET Core is Microsoft's framework for building web apps and APIs with C#. A **Minimal API** is a lightweight way to define HTTP endpoints directly in code — `app.MapGet("/games", handler)` with no controller class, no attributes, no inherited base. The result is less code per endpoint and a faster path from "I need a route" to a running route.
-
-**In code:**
 Every endpoint in this project (`MapGet`, `MapPost`, etc.) is a Minimal API. Instead of a `GamesController` class, there is a `MapGames()` method that registers all game-related routes.
 
 ---
 ### Program.cs — The Entry Point
 
-**The problem:**
-A web app has dozens of moving pieces — database, logging, routing, middleware, configuration, validation — that all need to be wired together in a specific order before the first request arrives. Spreading that wiring across many files makes it impossible to reason about what's actually registered or what runs first.
+`Program.cs` is the single entry point where everything gets configured and the app starts. A web app has dozens of moving pieces — database, logging, routing, middleware, configuration, validation — that all need to be wired together in a specific order. `Program.cs` splits cleanly into two phases so the lifecycle is obvious from top to bottom: the **builder phase** (register services into the DI container) and the **app phase** (configure the pipeline and run).
 
-**What it does:**
-`Program.cs` is the single entry point where everything gets configured and the app starts. It splits cleanly into two phases — *builder* (register services into the DI container) and *app* (configure the pipeline and run) — so the lifecycle is obvious from top to bottom.
-
-**In code:**
 ```csharp
 var builder = WebApplication.CreateBuilder(args);  // Creates the app builder
 var connectionString = builder.Configuration.GetConnectionString("GoGameShop");
@@ -63,11 +53,7 @@ The two phases are:
 ---
 ### WebApplication & WebApplicationBuilder
 
-**The problem:**
-Setting up a web app is naturally two-phased: first declare what exists (services, config sources, logging providers), then use those declarations to wire up the pipeline and start handling requests. If both phases share one object, it's easy to accidentally consume a service before it's fully registered, or to mutate registrations after they've been baked in.
-
-**What they are:**
-`WebApplicationBuilder` (returned by `WebApplication.CreateBuilder(args)`) is for the *registration* phase. Calling `builder.Build()` locks the registrations and returns a `WebApplication` — the running app, used for the *usage* phase (mapping routes, adding middleware, calling `Run()`).
+Setting up a web app is naturally two-phased: first declare what exists (services, config sources, logging providers), then use those declarations to wire up the pipeline and start handling requests. `WebApplicationBuilder` (returned by `WebApplication.CreateBuilder(args)`) owns the registration phase. Calling `builder.Build()` locks the registrations and returns a `WebApplication` — the running app — which handles the usage phase: mapping routes, adding middleware, calling `Run()`.
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);  // WebApplicationBuilder
@@ -77,8 +63,7 @@ var app = builder.Build();                         // WebApplication
 app.Run();
 ```
 
-**What `WebApplication.CreateBuilder()` preconfigures for you:**
-Calling `CreateBuilder()` is not a blank slate — it sets up a large number of defaults so you don't have to:
+Calling `CreateBuilder()` is not a blank slate — it sets up a large number of defaults:
 
 | Default | What it does |
 |---------|-------------|
@@ -102,7 +87,7 @@ builder.Host            // Configure the underlying host
 builder.WebHost         // Configure Kestrel / web server settings
 ```
 
-**After `Build()`**, the `WebApplication` object (`app`) doubles as both the app and the middleware pipeline:
+After `Build()`, the `WebApplication` object (`app`) doubles as both the app and the middleware pipeline:
 
 ```csharp
 var app = builder.Build();
@@ -233,13 +218,8 @@ A quick reference for the most important types in ASP.NET Core and the methods y
 ---
 ### The .csproj File — Project Configuration
 
-**The problem:**
-A project needs to declare which .NET version it targets, which NuGet packages it depends on, and which compiler options apply — and that declaration needs to be deterministic, version-controllable, and machine-readable for the build, restore, and IDE all to agree.
+The `.csproj` file is an XML manifest that declares which .NET version the project targets, which NuGet packages it depends on, and which compiler options apply. The .NET SDK and every IDE read this same file, so the project's identity is defined in one place and is the same everywhere it's built.
 
-**What it does:**
-The `.csproj` file is an XML manifest for the project: target framework, package references, language settings, build options. The .NET SDK and every IDE read this same file, so the project's identity is defined in one place and is the same everywhere it's built.
-
-**In code:**
 ```xml
 <TargetFramework>net10.0</TargetFramework>   <!-- Use .NET 10 -->
 <Nullable>enable</Nullable>                  <!-- Enable nullable reference types -->
@@ -256,13 +236,8 @@ The `.csproj` file is an XML manifest for the project: target framework, package
 ---
 ### appsettings.json — App Configuration
 
-**The problem:**
-Values like connection strings, log levels, and feature flags differ between environments and change over time. Hardcoding them means recompiling for every tweak; spreading them across env vars alone makes the configuration shape invisible to the code that reads it.
+`appsettings.json` is the file-based source for application configuration. Values like connection strings, log levels, and feature flags differ between environments and change over time — hardcoding them means recompiling for every tweak. ASP.NET Core layers `appsettings.json` with `appsettings.{Environment}.json` and environment variables (later sources override earlier ones), so the same code reads the right value in dev, staging, and production without changes.
 
-**What it does:**
-`appsettings.json` is the file-based source for application configuration. ASP.NET Core layers it with `appsettings.{Environment}.json` and environment variables (later sources override earlier ones), so the same code reads the right value in dev, staging, and production without changes.
-
-**In code:**
 ```json
 "ConnectionStrings": {
   "GoGameShop": "Data Source=GoGameShop.db"
@@ -320,13 +295,9 @@ The key difference: HTTP logging is `Information` in production (base config) bu
 ---
 ### Logging
 
-**The problem:**
-`Console.WriteLine` is unstructured, unfilterable, and tied to one destination. As soon as the app needs to ship logs to a file, an aggregator, or a cloud service — or to silence noisy categories without recompiling — print-style logging falls apart.
+ASP.NET Core's built-in `ILogger<T>` is a structured logger registered automatically by `WebApplicationBuilder`. Unlike `Console.WriteLine`, it captures severity (`Information`, `Warning`, `Error`, …) and named properties — not just text — so log aggregators can filter and query, and a swap to Serilog or NLog later doesn't change the call sites.
 
-**What it does:**
-ASP.NET Core's built-in `ILogger<T>` is a structured logger registered automatically by `WebApplicationBuilder`. Calls capture severity (`Information`, `Warning`, `Error`, …) and named properties — not just text — so log aggregators can filter and query, and a swap to Serilog or NLog later doesn't change the call sites.
-
-**In code — injecting into an endpoint:**
+**Injecting into an endpoint:**
 ```csharp
 app.MapPost("/", async (
     GoGameShopContext dbContext,
@@ -343,7 +314,7 @@ app.MapPost("/", async (
 
 The `{GameName}` and `{GamePrice}` placeholders are **structured logging** — the logger stores `GameName` and `GamePrice` as named properties, not just as text. This means log aggregation tools (like Application Insights or Seq) can filter, query, and group by these values.
 
-**How it fits — logging from `WebApplication` directly:**
+**Logging from `WebApplication` directly:**
 ```csharp
 public static async Task InitializeDbAsync(this WebApplication app)
 {
@@ -415,13 +386,10 @@ The log category for HTTP logging is `Microsoft.AspNetCore.HttpLogging.HttpLoggi
 ---
 ### Global Usings
 
-**The problem:**
-The same handful of namespaces (`System`, the project's `Models`, `Data`, `Features`) get imported at the top of nearly every file. Each `using` line is small, but multiplied across the project they add up to noise and merge friction without communicating anything specific to the file.
+The same handful of namespaces (`System`, the project's `Models`, `Data`, `Features`) get imported at the top of nearly every file. Each `using` line is small, but multiplied across the project they add up to noise without communicating anything specific to the file.
 
-**What it does:**
 A `global using` declaration in one file (`GlobalUsings.cs`) applies the import across every file in the project. Project-wide namespaces get declared once and disappear from individual files, leaving only the per-file imports that actually convey something.
 
-**In code:**
 ```csharp
 global using GoGameShop.Api.Models;
 global using GoGameShop.Api.Data;
@@ -434,11 +402,7 @@ Now any file in the project can reference `Game`, `GoGameShopContext`, or `GetGa
 ---
 ### Middleware
 
-**The problem:**
-Cross-cutting concerns — logging, auth, exception handling, compression, CORS — apply to every request, but baking them into each endpoint duplicates code and inevitably misses cases. There needs to be a way to layer behavior around the endpoint instead of inside it.
-
-**What it does:**
-**Middleware** is code that sits in the HTTP request pipeline and processes every request and response that passes through. Each piece can inspect or modify the request on the way in, call the next middleware, then inspect or modify the response on the way out — letting cross-cutting concerns live outside the endpoint.
+**Middleware** is code that sits in the HTTP request pipeline and processes every request and response that passes through. Cross-cutting concerns — logging, auth, exception handling, compression, CORS — apply to every request, but baking them into each endpoint duplicates code and inevitably misses cases. Middleware solves this by layering behavior around the endpoint: each piece can inspect or modify the request on the way in, call the next middleware, then inspect or modify the response on the way out.
 
 ```
 Incoming request
@@ -529,13 +493,8 @@ Additional constructor dependencies (like `ILogger`) are resolved from DI automa
 ---
 ### Middleware Order
 
-**The problem:**
-Middleware runs in registration order on the way in and the reverse on the way out — and the order is load-bearing. Authorization before routing means the router hasn't run yet, so the auth check has no endpoint to inspect. Static files after auth means anonymous users get `401` for images. Both bugs are silent and easy to miss.
+The order in which you call `app.Use*()` in `Program.cs` *is* the pipeline order. There's no auto-sort; the framework runs them as you wrote them, and the order is load-bearing. Authorization before routing means the router hasn't run yet, so the auth check has no endpoint to inspect. Static files after auth means anonymous users get `401` for images. Both bugs are silent and easy to miss.
 
-**What to know:**
-The order in which you call `app.Use*()` in `Program.cs` *is* the pipeline order. There's no auto-sort; the framework runs them as you wrote them. The recommended ordering below isn't arbitrary — each item depends on something earlier having already run.
-
-**Why order matters:**
 ```
 // WRONG — auth runs before routing, so app.User.Identity is not set yet for the endpoint
 app.UseAuthorization();
@@ -573,19 +532,14 @@ app.MapGetRatings();
 
 Exception handling, auth, and HTTPS redirection haven't been added yet — they'll come in later phases.
 
-**Short-circuiting:**
 Any middleware can stop the pipeline by not calling `await next(context)`. This is how auth middleware works — if the request isn't authenticated, it returns a `401` immediately and the endpoint never runs.
 
 ---
 ### Options Pattern
 
-**The problem:**
-Reading config with `builder.Configuration["Key"]` returns raw strings — no type safety, no IntelliSense, no validation, and the shape of the config is defined nowhere. Misspelling a key or forgetting a value fails silently at runtime, often only on the unlucky environment where it matters.
+Reading config with `builder.Configuration["Key"]` returns raw strings with no type safety, no IntelliSense, no validation, and no visible shape. Misspelling a key or forgetting a value fails silently at runtime, often only on the unlucky environment where it matters.
 
-**What it does:**
 The **Options pattern** binds a section of `appsettings.json` to a strongly-typed C# class and exposes it through DI. Config becomes a typed object with named properties; the shape lives in one place; the compiler catches typos; and validation can attach to the class.
-
-**How it works:**
 
 1. Define a class matching the config section shape:
 ```csharp
@@ -632,13 +586,10 @@ app.MapGet("/config", (IOptions<GameStoreOptions> options) =>
 ---
 ### IHttpContextAccessor — Accessing HttpContext Outside a Handler
 
-**The problem:**
-Inside a Minimal API handler, `HttpContext` is available as a parameter. But a service injected via DI (like a file uploader that needs the request's host to build a URL) has no handler parameter to read it from — and passing `HttpContext` through every method call manually is invasive and easy to forget.
+Inside a Minimal API handler, `HttpContext` is available as a parameter. But a service injected via DI (like a file uploader that needs the request's host to build a URL) has no handler parameter to read it from, and passing `HttpContext` through every method call manually is invasive and easy to forget.
 
-**What it does:**
 `IHttpContextAccessor` is a service that exposes the current request's `HttpContext` via an `AsyncLocal<T>`. Any class injected with it can reach the request context as long as it runs within an HTTP request — outside one (a background job, a startup hook), it returns `null`.
 
-**In code:**
 ```csharp
 // Register in Program.cs
 builder.Services.AddHttpContextAccessor();
@@ -666,9 +617,13 @@ public class FileUploader(IWebHostEnvironment environment, IHttpContextAccessor 
 ```text
 GoGameShop/
 ├── Backend/
+│   ├── .vscode/                          # VS Code workspace settings
+│   │   ├── tasks.json                    # "publish" task: dotnet publish to published/
+│   │   └── settings.json                 # Default App Service target + deploySubpath
 │   ├── localinfra/                       # Local development infrastructure
 │   │   ├── docker-compose.yml            # Keycloak container definition
 │   │   └── gogameshop-realm.json         # Keycloak realm export (roles, clients, settings)
+│   ├── published/                        # dotnet publish output (deploy target, git-ignored)
 │   ├── src/
 │   │   └── GoGameShop.Api/               # Main API project
 │   │       ├── Data/                     # EF Core DbContext, seeding, and migrations
@@ -698,7 +653,7 @@ GoGameShop/
 │   │       │   ├── Genres/               # GET /genres
 │   │       │   └── Ratings/              # GET /ratings
 │   │       ├── Models/                   # Domain entities (Game, Genre, Rating)
-│   │       ├── Properties/               # launchSettings.json (port 5002)
+│   │       ├── Properties/               # launchSettings.json (http: port 5002)
 │   │       ├── GlobalUsings.cs           # Global namespace imports
 │   │       ├── appsettings.json
 │   │       ├── appsettings.Development.json
@@ -733,8 +688,10 @@ GoGameShop/
 ├── postman/                              # Postman workspace
 │   ├── collections/
 │   ├── environments/
+│   │   ├── local.environment.yaml        # baseUrl = http://localhost:5002
+│   │   └── Azure.environment.yaml        # baseUrl = deployed App Service URL
 │   ├── flows/
-│   ├── globals/
+│   ├── globals/                          # workspace.globals.yaml (baseUrl variable)
 │   ├── mocks/
 │   └── specs/
 └── .postman/                             # Postman backup/config
@@ -744,28 +701,19 @@ GoGameShop/
 
 ### launchSettings.json
 
-**The problem:**
-Different developers run the app differently — different ports, different environments, different launch profiles for IDE vs CLI vs IIS Express. Without a shared local-launch config, every teammate has to remember the right command-line flags for their machine.
+`launchSettings.json` (in `Properties/`) defines local-development launch profiles: which URL to bind, which environment to set, whether to launch a browser. Different developers can run the app differently — different ports, different environments, different launch profiles for IDE vs CLI — and this shared file keeps that from being tribal knowledge. The file is checked into version control but never deployed; production gets its config from environment variables, not this file.
 
-**What it does:**
-`launchSettings.json` (in `Properties/`) defines local-development launch profiles: which URL to bind, which environment to set, whether to launch a browser. The file is checked into version control but never deployed — production gets its config from environment variables, not this file.
-
-**In code:**
 ```json
 "http": {
-    "applicationUrl": "http://localhost:5078",
+    "applicationUrl": "http://localhost:5002",
     "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Production"
     }
 }
 ```
 
-When `ASPNETCORE_ENVIRONMENT` is `"Development"`:
-- `appsettings.Development.json` is loaded on top of `appsettings.json`
-- More detailed error pages are shown
-- Developer tools like hot reload are enabled
+Both profiles run with `ASPNETCORE_ENVIRONMENT` set to `"Production"`, which means `appsettings.json` is the only config file loaded (no `appsettings.Development.json` override), and the production exception handler is active instead of the developer error page. The `http` profile binds to port 5002 for local development.
 
-The app is accessible at `http://localhost:5078` during development.
+The environment is set to `Production` locally so that the local run behaves as close to the Azure deployment as possible — any config that only applies in `Development` would be invisible in Azure, making it easy to miss issues until after deployment.
 
 ---
-

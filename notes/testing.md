@@ -2,10 +2,8 @@
 
 ### Why automated tests
 
-**The problem:**
 Software changes break things. A refactor that looks safe can ship a bug. A new feature can quietly regress an old one. Without a safety net, the only way to catch these is to run the application by hand and click through every flow that might be affected, every time anything changes. That scales linearly with feature count and team size, and it scales terribly: by the time the team is large enough to ship interesting work, manual regression testing has become a full-time job that nobody wants to do.
 
-**What it does:**
 **Automated tests** are programs that run other programs with known inputs and assert on the outputs. They live next to the production code, run on every commit in CI, and fail loudly when behavior changes. A failing test catches a regression in seconds instead of in production; a passing test gives you the confidence to refactor or upgrade dependencies without manually re-verifying every code path.
 
 What a good test suite buys you:
@@ -21,10 +19,8 @@ This project uses **two kinds** of automated tests: unit tests and integration t
 ---
 ### Unit tests
 
-**The problem:**
 The smallest unit of behavior in an object-oriented system is usually a single method on a class. When that method has a bug, you want a test that fails the moment the bug appears, not a sprawling end-to-end test that's been broken for three other reasons. You also want the test to run in milliseconds so you can keep a "watch" loop running while you code, instead of waiting for a database or a network round trip every time you save a file.
 
-**What it does:**
 A **unit test** exercises one method (or one tightly coupled cluster of methods) **in complete isolation** from the outside world. Three properties define it:
 
 1. **Isolated.** No database, no HTTP, no file system, no clock, no network. If the method has dependencies (a repository, a logger, an HTTP client), the test substitutes them with fakes that return whatever the test wants. Building those fakes is what mocking libraries are for.
@@ -39,18 +35,16 @@ When unit tests are the right tool:
 - Anything where the **interesting behavior lives in code you wrote**, not in the wiring between components
 
 When they are **not** the right tool:
-- "Does my route map to my handler?" : that's integration
-- "Does my SQL actually return what I expect?" : that's integration
-- "Does my DI container hand me the right implementation?" : that's integration
+- "Does my route map to my handler?" — that's integration
+- "Does my SQL actually return what I expect?" — that's integration
+- "Does my DI container hand me the right implementation?" — that's integration
 
 ---
 ### The AAA pattern and test naming
 
-**The problem:**
 A test that runs and a test that's readable are not the same thing. When a test fails six months from now, the person reading it has none of the context the author had. If the test body is a tangle, the fix is to read the production code first to figure out what the test was trying to prove, which defeats half the value of writing the test.
 
-**What it does:**
-Two conventions: **Arrange-Act-Assert** for the body, and `Method_Scenario_ExpectedResult` for the name.
+Two conventions help: **Arrange-Act-Assert** for the body, and `Method_Scenario_ExpectedResult` for the name.
 
 **Arrange-Act-Assert** divides every test into three sections:
 - **Arrange**: set up the inputs and any fakes
@@ -79,11 +73,7 @@ The single-Act rule matters: if a test calls the method under test twice, it's t
 ---
 ### xUnit basics
 
-**The problem:**
-.NET has three major test frameworks (xUnit, NUnit, MSTest) and you need to pick one and learn its idioms before you can write any tests. They cover the same ground with slightly different vocabularies.
-
-**What it does:**
-**xUnit** is the most-used framework for new .NET projects (and the one this project uses). Its API is small.
+.NET has three major test frameworks (xUnit, NUnit, MSTest) and you need to pick one and learn its idioms before you can write any tests. They cover the same ground with slightly different vocabularies. **xUnit** is the most-used framework for new .NET projects and the one this project uses.
 
 The pieces worth knowing on day one:
 
@@ -110,13 +100,9 @@ xUnit creates a **new instance of the test class for every test** by default. St
 ---
 ### Mocking with NSubstitute
 
-**The problem:**
 A class under test usually has dependencies declared as interfaces: `ILogger<T>`, an `IBasketRepository`, an `IHttpClientFactory`. The unit test needs to hand it stand-ins for those dependencies, because the real implementations would pull in a database, an HTTP server, or a logging sink. Hand-writing a fake class for every interface every test needs would be miserable.
 
-**What it does:**
-A **mocking library** generates fake implementations of interfaces on the fly. The test asks for one, configures any return values it cares about, and hands it to the class under test.
-
-This project uses **NSubstitute**. The API has three moves to know:
+A **mocking library** generates fake implementations of interfaces on the fly. The test asks for one, configures any return values it cares about, and hands it to the class under test. This project uses **NSubstitute**. The API has three moves to know:
 
 **Create a substitute (a fake):**
 ```csharp
@@ -144,10 +130,8 @@ The two competing libraries in .NET are **Moq** (older, more imperative API: `mo
 ---
 ### Integration tests
 
-**The problem:**
 Unit tests can all pass while the application is still broken. A handler can be correct in isolation while not being registered in DI. A route can be wired to a handler that throws when EF Core actually runs the query. An auth policy can be configured wrong in a way no individual class would ever notice. The only test that catches these is one that exercises the wiring: middleware, DI, routing, model binding, the real database, the real serializer.
 
-**What it does:**
 An **integration test** boots multiple components together and asserts on the result. For an ASP.NET Core API, that means:
 
 - The full HTTP pipeline (routing, model binding, middleware, auth, exception handling)
@@ -165,10 +149,8 @@ Trade-offs versus unit tests:
 ---
 ### `WebApplicationFactory<T>` and in-process testing
 
-**The problem:**
 A naive "integration test" approach would be: `dotnet run` the API in a background process, give it a port, point an `HttpClient` at `http://localhost:5002`, then `dotnet test`. That works but is slow, brittle (port conflicts, cleanup of leftover processes), and a pain in CI.
 
-**What it does:**
 **`WebApplicationFactory<TEntryPoint>`** (from the `Microsoft.AspNetCore.Mvc.Testing` NuGet package) boots the ASP.NET Core application **in the same process as the test**. The `TEntryPoint` type parameter points at the `Program` class so the framework knows where to start. The factory:
 
 1. Runs the same startup code `Program.cs` would run, with the chance to override registrations
@@ -199,10 +181,8 @@ For the test project to find `Program`, the minimal-API `Program.cs` needs `publ
 ---
 ### Swapping services in tests
 
-**The problem:**
 The whole point of integration tests is to run real code, but a few pieces have to be substituted: a real database means tests stomp on each other and on dev data; a real identity provider means tests need a running Keycloak.
 
-**What it does:**
 Subclass `WebApplicationFactory<T>` and override `ConfigureWebHost`. The hook runs after `Program.cs` has registered all its services but before the app is built, which is the right seam for surgery: find the registration to replace, remove it, add a new one.
 
 ```csharp
@@ -229,13 +209,11 @@ The same pattern works for any service: replace `IEmailSender` with a no-op, rep
 ---
 ### SQLite in-memory for tests
 
-**The problem:**
 Integration tests need a database. The production database (SQL Server, PostgreSQL) requires a separate server, which complicates CI and slows tests. A real local file is fine but has to be cleaned up between runs, and parallel tests can step on each other. Pure mocks for the DbContext drift from real EF Core behavior and miss SQL bugs.
 
-**What it does:**
 **SQLite in `:memory:` mode** is a fully functional SQL engine that lives entirely in process memory. EF Core's SQLite provider talks to it the same way it talks to a file, so the test exercises the real query translator, change tracker, and migrations.
 
-The catch: each `:memory:` database is **per-connection**. Open a connection, create a table, close the connection, the database is gone. EF Core opens and closes connections on demand, so a naive setup loses data immediately. The fix: open one `SqliteConnection` in the test fixture and keep it open for the fixture's entire lifetime, then hand the same connection to every DbContext:
+The catch: each `:memory:` database is **per-connection**. Open a connection, create a table, close the connection, the database is gone. EF Core opens and closes connections on demand, so a naive setup loses data immediately. The fix is to open one `SqliteConnection` in the test fixture and keep it open for the fixture's entire lifetime, then hand the same connection to every DbContext:
 
 ```csharp
 private readonly SqliteConnection _connection;
@@ -267,11 +245,9 @@ The alternative is **Testcontainers**: spin up a real SQL Server, PostgreSQL, or
 ---
 ### `IClassFixture<T>` and shared setup
 
-**The problem:**
 Booting an ASP.NET Core app, running migrations, and seeding a database takes a second or two. If xUnit did that for every `[Fact]`, a fifty-test integration suite would take a minute even before any of the actual HTTP calls. At the same time, you don't want tests to share state and step on each other.
 
-**What it does:**
-**`IClassFixture<T>`** is xUnit's hook for "create one instance of `T` and reuse it across every test in this class." The fixture is built before the first test runs and disposed after the last one finishes. Test class:
+**`IClassFixture<T>`** is xUnit's hook for "create one instance of `T` and reuse it across every test in this class." The fixture is built before the first test runs and disposed after the last one finishes.
 
 ```csharp
 public class MyTests : IClassFixture<MyFactory>
@@ -285,18 +261,16 @@ public class MyTests : IClassFixture<MyFactory>
 }
 ```
 
-Important property: **xUnit creates a separate fixture per test class**. Two different test classes that both use `IClassFixture<MyFactory>` get two different `MyFactory` instances and therefore two different in-memory databases. Tests in different classes do not share state.
+**xUnit creates a separate fixture per test class.** Two different test classes that both use `IClassFixture<MyFactory>` get two different `MyFactory` instances and therefore two different in-memory databases. Tests in different classes do not share state.
 
 For setup that must be shared across **multiple** test classes (rare), `ICollectionFixture<T>` plus `[Collection("name")]` does the same trick at collection scope.
 
 ---
 ### Test authentication handlers
 
-**The problem:**
 Endpoints behind `[Authorize]` need an authenticated request. In production, that means a JWT issued by Keycloak. In tests, running Keycloak is overkill, and minting real JWTs against a test key just to test "the auth-required endpoints work" adds complexity that obscures what the test is really proving.
 
-**What it does:**
-Register a tiny **test authentication scheme** that builds a `ClaimsPrincipal` from a request header, then point the framework's default scheme at it during the test run. Production code stays unchanged; tests get a one-line way to say "this request is from user X with role Y."
+The solution is to register a tiny **test authentication scheme** that builds a `ClaimsPrincipal` from a request header, then point the framework's default scheme at it during the test run. Production code stays unchanged; tests get a one-line way to say "this request is from user X with role Y."
 
 ```csharp
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
@@ -344,10 +318,6 @@ No Keycloak, no JWT signing, no metadata fetch.
 ---
 ### Tests in this project
 
-**The problem:**
-Reading generic guidance about unit and integration tests is not the same as knowing what this project's test suite actually covers. Maintainers (including future-you) need a concrete map: what is tested, what each test exists to catch, and why each was written.
-
-**What it does:**
 The test layout under `Backend/tests/` has two projects:
 
 ```
@@ -361,15 +331,15 @@ The unit-test project takes a project reference to the API project and a NuGet r
 Both projects mirror the source folder structure: a test for a class in `src/GoGameShop.Api/Features/Baskets/Authorization/BasketAuthorizationHandler.cs` lives at `tests/GoGameShop.Api.UnitTests/Features/Baskets/Authorization/BasketAuthorizationHandlerTests.cs`.
 
 The integration-test project also contains:
-- `GoGameShopWebApplicationFactory.cs` : subclass of `WebApplicationFactory<Program>` that swaps in a SQLite in-memory `DbContext` and installs the test authentication scheme as the default.
-- `TestAuthHandler.cs` : the test authentication handler. Reads `X-Test-User-Id` and optional `X-Test-User-Roles` headers, attaches the `gogameshop_api.all` scope claim automatically so requests pass the fallback authorization policy, and returns `NoResult` (which the framework turns into a 401) when no user-id header is present.
+- `GoGameShopWebApplicationFactory.cs`: subclass of `WebApplicationFactory<Program>` that swaps in a SQLite in-memory `DbContext` and installs the test authentication scheme as the default.
+- `TestAuthHandler.cs`: the test authentication handler. Reads `X-Test-User-Id` and optional `X-Test-User-Roles` headers, attaches the `gogameshop_api.all` scope claim automatically so requests pass the fallback authorization policy, and returns `NoResult` (which the framework turns into a `401`) when no user-id header is present.
 
 ---
 #### The 10 unit tests
 
 The unit-test suite covers the two classes in the project that contain non-trivial **pure logic**: the resource-based authorization handler and the Keycloak claims transformer. Pure logic is where unit tests pay best.
 
-**`BasketAuthorizationHandlerTests`** : five tests against the handler that decides whether the current user is allowed to act on a `CustomerBasket`. The rule is "the user's `sub` claim equals the basket's `Id`, **or** the user has the `Admin` role." Every branch through the handler is covered.
+**`BasketAuthorizationHandlerTests`** — five tests against the handler that decides whether the current user is allowed to act on a `CustomerBasket`. The rule is "the user's `sub` claim equals the basket's `Id`, **or** the user has the `Admin` role." Every branch through the handler is covered.
 
 1. **`HandleRequirement_UserIsBasketOwner_Succeeds`**
    Builds a `ClaimsPrincipal` whose `sub` claim equals the basket's `Id`, runs the handler, asserts `context.HasSucceeded == true`. This is the happy-path test for the owner branch.
@@ -386,7 +356,7 @@ The unit-test suite covers the two classes in the project that contain non-trivi
 5. **`HandleRequirement_SubClaimNotAGuid_ThrowsFormatException`**
    Principal's `sub` claim is the literal string `"not-a-guid"`. The handler currently calls `Guid.Parse` (not `TryParse`) and therefore throws `FormatException`. The test uses `Assert.ThrowsAsync<FormatException>` to **document the current behavior**. If someone later refactors to `TryParse` and silently treats malformed claims as deny, this test fails and forces a deliberate conversation about which behavior is correct. Tests that lock down defensive-or-buggy behavior are a real category of test, not just happy-path coverage.
 
-**`KeycloakClaimsTransformerTests`** : five tests against the class that takes a Keycloak-style space-delimited `scope` claim (`"openid profile email"`) and explodes it into one claim per scope. Why this matters: ASP.NET Core's authorization layer requires `RequireClaim("scope", "...")` to match each scope individually, not as a substring of a combined claim.
+**`KeycloakClaimsTransformerTests`** — five tests against the class that takes a Keycloak-style space-delimited `scope` claim (`"openid profile email"`) and explodes it into one claim per scope. ASP.NET Core's authorization layer requires `RequireClaim("scope", "...")` to match each scope individually, not as a substring of a combined claim.
 
 1. **`Transform_MultipleScopesInOneClaim_SplitsIntoSeparateClaims`**
    Input: a single claim with value `"openid profile email"`. Asserts the identity ends up with three separate `scope` claims, one per token. The core happy path.
@@ -418,7 +388,7 @@ The integration-test suite covers one happy path, one not-found path, and three 
 
 2. **`GetGame_NonExistentId_Returns404`**
    `GET /games/{random-guid}`. Asserts status is `404 Not Found`.
-   **What it proves:** the lookup endpoint actually returns 404 instead of, say, a `500` or a misleading empty `200`. Catches any future change that swaps `dbContext.Games.FindAsync` for something that throws on miss, or that drops the `is null` check.
+   **What it proves:** the lookup endpoint actually returns `404` instead of, say, a `500` or a misleading empty `200`. Catches any future change that swaps `dbContext.Games.FindAsync` for something that throws on miss, or that drops the `is null` check.
 
 **`GetBasketEndpointTests`**
 
@@ -443,4 +413,4 @@ Three deliberate choices shaped the suite:
 
 - **Unit tests stay where unit tests pay best.** The handler and the claims transformer are pure-logic classes with multiple branches each. Every branch is covered by a unit test that runs in single-digit milliseconds. Their integration with the rest of the app is tested separately and only once each.
 - **Integration tests cover the auth wiring, not the auth logic.** The unit tests already prove that `BasketAuthorizationHandler` behaves correctly given various principals. The integration tests prove that the handler is **actually wired into the HTTP pipeline** for the basket endpoints. Nothing in the integration suite re-tests the handler's internal branches; that would be wasted runtime.
-- **No test is redundant with another.** Every test fails for a different reason. The two `UpsertBasket` tests look symmetric (success vs forbid) but they prove different things : one proves the success path runs end-to-end including `SaveChangesAsync`; the other proves the ownership check actually blocks unauthorized writes. Either test passing tells you nothing about the other.
+- **No test is redundant with another.** Every test fails for a different reason. The two `UpsertBasket` tests look symmetric (success vs forbid) but they prove different things: one proves the success path runs end-to-end including `SaveChangesAsync`; the other proves the ownership check actually blocks unauthorized writes. Either test passing tells you nothing about the other.

@@ -7,21 +7,50 @@
 
 ## Table of Contents
 
-| Topic                           | File                                                                   |
-|---------------------------------|------------------------------------------------------------------------|
-| Project Setup and Configuration | [notes/01-project-setup.md](notes/01-project-setup.md)                 |
-| Architecture Patterns           | [notes/02-architecture-patterns.md](notes/02-architecture-patterns.md) |
-| C# Essentials                   | [notes/03-csharp-essentials.md](notes/03-csharp-essentials.md)         |
-| Data and EF Core                | [notes/04-data-ef-core.md](notes/04-data-ef-core.md)                   |
-| API Design                      | [notes/05-api-design.md](notes/05-api-design.md)                       |
-| Async Programming               | [notes/06-async-programming.md](notes/06-async-programming.md)         |
-| Object-Oriented Programming     | [notes/07-oop.md](notes/07-oop.md)                                     |
-| Authentication & Authorization  | [notes/08-auth.md](notes/08-auth.md)                                   |
-| Docker                          | [notes/09-docker.md](notes/09-docker.md)                               |
-| Keycloak                        | [notes/10-keycloak.md](notes/10-keycloak.md)                           |
-| Postman                         | [notes/11-postman.md](notes/11-postman.md)                             |
-| OAuth 2.0 and OpenID Connect    | [notes/12-oauth-oidc.md](notes/12-oauth-oidc.md)                       |
-| Blazor Frontend                 | [notes/13-blazor-frontend.md](notes/13-blazor-frontend.md)             |
-| Azure                           | [notes/14-azure.md](notes/14-azure.md)                                 |
-| Secret Management               | [notes/15-secret-management.md](notes/15-secret-management.md)         |
-| Testing                         | [notes/16-testing.md](notes/16-testing.md)                             |
+### Language Foundations
+| Topic | File |
+|---|---|
+| C# Essentials | [notes/csharp-essentials.md](notes/csharp-essentials.md) |
+| Object-Oriented Programming | [notes/oop.md](notes/oop.md) |
+| Async Programming | [notes/async-programming.md](notes/async-programming.md) |
+
+### Project Structure
+| Topic | File |
+|---|---|
+| Project Setup and Configuration | [notes/project-setup.md](notes/project-setup.md) |
+| Architecture Patterns | [notes/architecture-patterns.md](notes/architecture-patterns.md) |
+
+### Data
+| Topic | File |
+|---|---|
+| Data and EF Core | [notes/data-ef-core.md](notes/data-ef-core.md) |
+
+### API
+| Topic | File |
+|---|---|
+| API Design | [notes/api-design.md](notes/api-design.md) |
+
+### Security and Identity
+| Topic | File |
+|---|---|
+| Authentication and Authorization | [notes/auth.md](notes/auth.md) |
+| OAuth 2.0 and OpenID Connect | [notes/oauth-oidc.md](notes/oauth-oidc.md) |
+| Keycloak | [notes/keycloak.md](notes/keycloak.md) |
+| Secret Management | [notes/secret-management.md](notes/secret-management.md) |
+
+### Infrastructure
+| Topic | File |
+|---|---|
+| Docker | [notes/docker.md](notes/docker.md) |
+| Azure | [notes/azure.md](notes/azure.md) |
+
+### Frontend
+| Topic | File |
+|---|---|
+| Blazor Frontend | [notes/blazor-frontend.md](notes/blazor-frontend.md) |
+
+### Tooling and Quality
+| Topic | File |
+|---|---|
+| Postman | [notes/postman.md](notes/postman.md) |
+| Testing | [notes/testing.md](notes/testing.md) |

@@ -2,13 +2,8 @@
 
 ### Async/Await
 
-**The problem:**
-Web servers handle many requests at once. If every request blocks a thread while waiting for a database query, you run out of threads under load and the server stalls.
+`async` and `await` are C# keywords that let you write non-blocking code that reads like synchronous code. Web servers handle many requests at once, and if every request blocks a thread while waiting for a database query, you run out of threads under load and the server stalls. An `async` method can pause at an `await` expression and release the thread while it waits for a result — so the thread is free to handle other requests while the database is busy.
 
-**What it does:**
-`async` and `await` are C# keywords that let you write non-blocking code that reads like synchronous code. An `async` method can pause at an `await` expression and release the thread while it waits for a result — so the thread is free to handle other requests while the database is busy.
-
-**In code:**
 ```csharp
 // Before (sync — blocks the thread while the DB query runs):
 app.MapGet("/", (GoGameShopContext dbContext) =>
@@ -28,11 +23,7 @@ Rules:
 ---
 ### The Task Type
 
-**The problem:**
-An `async` method can't return its real result on the spot — the work hasn't happened yet. The caller still needs *something* back so it can wait for the result later.
-
-**What it does:**
-`Task` is C#'s representation of an ongoing asynchronous operation — a promise that "this will eventually produce a result (or finish) in the future." When a method is marked `async`, it returns a `Task` immediately, and the caller can `await` that `Task` to get the result when it's ready.
+`Task` is C#'s representation of an ongoing asynchronous operation — a promise that "this will eventually produce a result (or finish) in the future." An `async` method can't return its real result on the spot because the work hasn't happened yet. When a method is marked `async`, it returns a `Task` immediately, and the caller can `await` that `Task` to get the result when it's ready.
 
 **Three forms:**
 
@@ -40,9 +31,8 @@ An `async` method can't return its real result on the spot — the work hasn't h
 |------|---------|
 | `Task` | Async operation with no return value |
 | `Task<T>` | Async operation that returns a value of type `T` |
-| `ValueTask<T>` | Lightweight version of `Task<T>` (see section 28) |
+| `ValueTask<T>` | Lightweight version of `Task<T>` (see section below) |
 
-**In code:**
 ```csharp
 // Returns Task — no value, just "done when done"
 public static async Task InitializeDbAsync(this WebApplication app)
@@ -67,7 +57,6 @@ public async Task<List<Game>> GetGamesAsync()
 ---
 ### ValueTask & .AsTask()
 
-**What `ValueTask` is:**
 `ValueTask<T>` is a lightweight alternative to `Task<T>` that avoids heap allocation when a result is available immediately (synchronously). EF Core's `FindAsync()` returns `ValueTask<T>` for this reason — if the entity is already in the context's cache, no real async work is needed.
 
 ```csharp
@@ -77,7 +66,6 @@ var game = await dbContext.Games.FindAsync(id);
 
 You can `await` a `ValueTask` just like a `Task` — in most cases you don't need to think about the difference.
 
-**What `.AsTask()` does:**
 `.AsTask()` converts a `ValueTask` or `ValueTask<T>` into a regular `Task` or `Task<T>`. This is needed when you want to pass the operation to something that only accepts `Task`, such as `Task.WhenAll()` or `ContinueWith()`.
 
 ```csharp
@@ -91,21 +79,13 @@ await Task.WhenAll(task, someOtherTask);
 
 **Important:** Only call `.AsTask()` once per `ValueTask`. Unlike `Task`, a `ValueTask` must not be awaited or converted more than once — doing so is undefined behavior.
 
-**In practice:** You rarely need `.AsTask()` in everyday code. It becomes relevant when:
-- Combining multiple async operations with `Task.WhenAll`
-- Using continuation-style code with `ContinueWith`
-- Storing or passing around an async operation as a `Task`
+In practice, `.AsTask()` becomes relevant when combining multiple async operations with `Task.WhenAll`, using continuation-style code with `ContinueWith`, or storing an async operation as a `Task` to pass around. For everyday `await` usage you never need it.
 
 ---
 ### ContinueWith
 
-**The problem:**
-Before `async/await` existed, you still needed a way to run code *after* a task completed. Even today, some scenarios need finer control over the continuation than `await` exposes — running only on success, only on failure, or on a specific thread.
+`ContinueWith()` is a method on `Task` that schedules a callback to run when the task completes. It predates `async/await` syntax and is the older, explicit way to chain async operations — useful to know because you'll encounter it in older codebases and in framework source.
 
-**What it does:**
-`ContinueWith()` is a method on `Task` that schedules a callback to run when the task completes. It's the older, explicit way to chain async operations and it predates `async/await` syntax — useful to know because you'll encounter it in older codebases and in framework source.
-
-**In code:**
 ```csharp
 Task<Game?> findTask = dbContext.Games.FindAsync(id).AsTask();
 
@@ -128,7 +108,6 @@ The callback receives the completed `Task` as its argument, so you can inspect `
 | Context | Explicit control via `TaskScheduler` | Captures context automatically |
 | Use case | Legacy code, advanced scheduling | Everything else |
 
-**In this project:** All endpoints use `async/await` — `ContinueWith` is not used directly. But understanding it helps when reading framework source code or older libraries, and explains *why* `async/await` was designed the way it was.
+All endpoints in this project use `async/await` — `ContinueWith` is not used directly. Understanding it helps when reading framework source code or older libraries, and it explains *why* `async/await` was designed the way it was.
 
 ---
-

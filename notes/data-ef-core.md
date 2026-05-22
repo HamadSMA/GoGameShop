@@ -2,13 +2,9 @@
 
 ### Models & Entities
 
-**The problem:**
-A relational database thinks in tables, columns, and rows. Application code thinks in objects with methods and references. Without a bridge, every read and write is a manual translation between the two — tedious to write and easy to get inconsistent.
+A **model** (also called an **entity**) is a C# class that represents a real-world thing your app works with — `Game`, `Genre`, `Rating`. A relational database thinks in tables, columns, and rows; application code thinks in objects with methods and references. EF Core bridges that gap: each model maps to a database table, so you work with objects in code and EF Core handles the SQL.
 
-**What it does:**
-A **model** (also called an **entity**) is a C# class that represents a real-world thing your app works with — `Game`, `Genre`, `Rating`. In EF Core, each model maps to a database table, so you work with objects in code and EF Core handles the SQL.
-
-**In code — `Game.cs`:**
+**`Game.cs`:**
 ```csharp
 public class Game
 {
@@ -34,11 +30,7 @@ Key concepts here:
 ---
 ### Entity Framework Core (EF Core)
 
-**The problem:**
-Hand-writing SQL for every query is repetitive and error-prone, parameter-binding bugs become SQL injection holes, and the resulting strings are invisible to the compiler — a typo in a column name fails at runtime, not build time. There also needs to be something to evolve the schema as the C# models change, instead of writing migration scripts by hand.
-
-**What it does:**
-EF Core is an **Object-Relational Mapper (ORM)**. It translates LINQ over C# objects into SQL, tracks changes so it knows what to save, manages relationships, and generates schema migrations. A query like:
+EF Core is an **Object-Relational Mapper (ORM)**. Hand-writing SQL for every query is repetitive and error-prone: parameter-binding bugs become SQL injection holes, and the resulting strings are invisible to the compiler — a typo in a column name fails at runtime, not build time. EF Core translates LINQ over C# objects into SQL, tracks changes so it knows what to save, manages relationships, and generates schema migrations. A query like:
 
 ```csharp
 dbContext.Games.Where(g => g.Price < 30).ToList()
@@ -46,7 +38,6 @@ dbContext.Games.Where(g => g.Price < 30).ToList()
 
 becomes the equivalent `SELECT * FROM Games WHERE Price < 30` automatically.
 
-**In code:**
 This project uses EF Core with the SQLite provider. The three tables (Games, Genres, Ratings) are entirely managed by EF Core — no SQL was written manually.
 
 **Common EF Core queries and their SQL counterparts:**
@@ -218,13 +209,9 @@ SELECT * FROM Games LIMIT 10 OFFSET 20;
 ---
 ### DbContext
 
-**The problem:**
-Querying a database needs a connection, change tracking, and a registry of which classes map to which tables — all of it scoped to a single unit of work. Spreading that across the app would mean every query reinventing connection handling and change detection.
+`DbContext` is the central class in EF Core — a session with the database. It owns the connection, exposes each table as a `DbSet<T>`, tracks changes to loaded entities, and coordinates saving them in one transaction via `SaveChanges()`. Every query, insert, update, and delete flows through it.
 
-**What it does:**
-`DbContext` is the central class in EF Core — a session with the database. It owns the connection, exposes each table as a `DbSet<T>`, tracks changes to loaded entities, and coordinates saving them in one transaction via `SaveChanges()`.
-
-**In code — `GoGameShopContext.cs`:**
+**`GoGameShopContext.cs`:**
 ```csharp
 public class GoGameShopContext(DbContextOptions<GoGameShopContext> options)
     : DbContext(options)
@@ -242,13 +229,8 @@ public class GoGameShopContext(DbContextOptions<GoGameShopContext> options)
 ---
 ### Database Migrations
 
-**The problem:**
-The C# model evolves continuously — fields get added, tables get renamed, indexes get introduced. The database has to track those changes too, but applying them ad-hoc means dev/staging/prod drift apart, and rolling back a bad change becomes guesswork.
+A **migration** is a versioned, code-form snapshot of a schema change — generated automatically when models change and applied in order to bring any database up to date. Without migrations, every model change would require writing ALTER TABLE scripts by hand, and dev/staging/prod would drift apart as people forgot to run scripts or ran them in the wrong order. Each migration is a checked-in C# file, so the schema's history lives next to the code that drives it and the same migrations replay identically across every environment.
 
-**What it does:**
-A **migration** is a versioned, code-form snapshot of a schema change — generated automatically when models change and applied in order to bring any database up to date. Each migration is a checked-in C# file, so the schema's history lives next to the code that drives it and the same migrations replay identically across every environment.
-
-**In code:**
 The migration at `Migrations/20260324172356_InitialCreate.cs` created the three tables:
 
 ```csharp
@@ -278,13 +260,9 @@ dotnet ef database update                  # Apply pending migrations
 ---
 ### Database Seeding
 
-**The problem:**
-A fresh database is empty. Some data — reference lookups like genres and age ratings, an initial admin user — has to be there for the app to function at all, and asking every developer to insert it manually after each `database update` is a nonstarter.
+**Seeding** pre-populates the database with required initial data when the app starts. A fresh database is empty, but some data — reference lookups like genres and age ratings — has to be there for the app to function at all. The seed is gated by an existence check so the same code is safe to run on every startup, and it lives in version control alongside the schema so any new environment is one boot away from a usable state.
 
-**What it does:**
-**Seeding** pre-populates the database with required initial data when the app starts, gated by an existence check so the same code is safe to run on every startup. The seed lives in version control alongside the schema, so any new environment is one boot away from a usable state.
-
-**In code — `DataExtensions.cs`:**
+**`DataExtensions.cs`:**
 ```csharp
 public static async Task InitializeDbAsync(this WebApplication app)
 {
@@ -324,13 +302,10 @@ Games have foreign keys to genres and ratings — they can't be inserted until t
 ---
 ### AsNoTracking
 
-**The problem:**
 By default, EF Core tracks every entity it loads — keeping a snapshot in memory so it can compute what changed when you call `SaveChanges()`. That bookkeeping has memory and CPU cost, and for pure read endpoints (the ones that hit the database hardest) it's wasted overhead.
 
-**What it does:**
 `AsNoTracking()` opts a query out of change tracking. The entities are returned but never registered with the context, so reads are faster and lighter. Use it on any query whose results will never be saved back.
 
-**In code:**
 ```csharp
 dbContext.Games
     .Include(game => game.Genre)
@@ -344,13 +319,9 @@ Used in `GET /games`, `GET /genres`, and `GET /ratings` — all pure read operat
 ---
 ### ExecuteDelete
 
-**The problem:**
-The traditional EF Core delete pattern is: load the entity into memory → call `Remove()` → call `SaveChanges()`. That's two round trips to the database for an operation that should need only one — wasteful when you don't actually need the entity, you just want it gone.
+The traditional EF Core delete pattern loads the entity into memory, calls `Remove()`, then calls `SaveChanges()` — two round trips to the database for an operation that needs only one. `ExecuteDelete()` translates directly into a single SQL `DELETE` statement without loading the entity first: one round trip, no tracking, no allocation for an object you were going to discard anyway.
 
-**What it does:**
-`ExecuteDelete()` translates directly into a single SQL `DELETE` statement without loading the entity first. One round trip, no tracking, no allocation for an object you were going to discard anyway.
-
-**In code — `DeleteGameEndpoint`:**
+**`DeleteGameEndpoint`:**
 ```csharp
 await dbContext.Games
     .Where(game => game.Id == id)
@@ -364,13 +335,11 @@ No entity is loaded into memory — it's a direct, efficient delete. `ExecuteDel
 ---
 ### Include (Eager Loading)
 
-**The problem:**
 Entities reference each other (a `Game` has a `Genre` and a `Rating`), but EF Core won't load those references by default — accessing them returns `null`. Loading each one with a separate query per row produces the classic N+1 problem: one query becomes hundreds.
 
-**What it does:**
-`Include()` tells EF Core to load a navigation property in the same query as the parent, using a SQL `JOIN`. One round trip, all the related data populated. There are three loading strategies in EF Core — eager (`Include`), explicit (separate query on demand), and lazy (auto-load on access, requires proxies, not used here).
+`Include()` tells EF Core to load a navigation property in the same query as the parent, using a SQL `JOIN`. One round trip, all the related data populated. There are three loading strategies in EF Core: eager (`Include`), explicit (separate query on demand), and lazy (auto-load on access, requires proxies, not used here).
 
-**In code — `GET /games`:**
+**`GET /games`:**
 ```csharp
 dbContext.Games
     .Include(game => game.Genre)    // JOIN Genres table
@@ -387,4 +356,3 @@ dbContext.Games
 The `!` (null-forgiving operator) tells the compiler "I know this won't be null here" — it's safe because `Include()` guarantees the navigation property is loaded.
 
 ---
-

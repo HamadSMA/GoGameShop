@@ -967,4 +967,3 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 Every dependency flows inward through interfaces. Swapping `OrderRepository` for a different storage backend, or `OrderService` for a decorated version, requires changing only the one registration line in `Program.cs`.
 
 ---
-
