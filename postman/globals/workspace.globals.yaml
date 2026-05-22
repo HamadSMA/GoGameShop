@@ -1,5 +1,5 @@
 name: Globals
 values:
   - key: baseUrl
-    value: ''
+    value: 'http://localhost:5002'
     enabled: true

@@ -1,0 +1,4 @@
+name: Azure
+values:
+  - key: baseUrl
+    value: 'https://app-gogameshop-be-dev-eastus2-01.azurewebsites.net'

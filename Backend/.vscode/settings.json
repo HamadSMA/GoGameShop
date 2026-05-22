@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/764dfbb9-a910-4c06-b3f5-aaf2028f652a/resourceGroups/rg-gogameshop-dev-eastus2-02/providers/Microsoft.Web/sites/app-gogameshop-be-dev-eastus2-01",
+    "appService.deploySubpath": "published"
+}
