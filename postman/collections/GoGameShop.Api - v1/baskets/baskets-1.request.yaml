@@ -1,6 +1,28 @@
 $kind: http-request
 name: baskets
-url: ""
+url: "{{baseUrl}}/baskets/c45493c2-bbee-4c65-9aad-4113762df1bf"
 method: PUT
+body:
+  type: json
+  content: |-
+    {
+
+    "items": [
+        {
+            "id": "6774dbca-fa10-402e-b87e-c4391426c066",
+            "quantity": 2
+        }
+    ]
+    }
+auth:
+  type: oauth2
+  credentials:
+    grant_type: authorization_code_with_pkce
+    redirect_uri: https://oauth.pstmn.io/v1/callback
+    authUrl: https://dotnetprojectsdev.ciamlogin.com/fa7f808a-fe1d-4122-94b7-fd4ff4125521/oauth2/v2.0/authorize
+    accessTokenUrl: https://dotnetprojectsdev.ciamlogin.com/fa7f808a-fe1d-4122-94b7-fd4ff4125521/oauth2/v2.0/token
+    scope: api://b91fcda7-ce81-45c8-bd48-edcaf5d025f8/gogameshop_api.all
+    client_authentication: body
+    clientId: 495ea5b7-8d00-4a09-b2de-37c67e3ee2c6
 examples: .resources/baskets.resources/examples
 order: 1346339633223039

@@ -23,7 +23,7 @@ public static class UpdateGameEndpoint
                 {
                     var currentUserId =
                         user?.FindFirstValue(JwtRegisteredClaimNames.Email)
-                        ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+                        ?? user?.FindFirstValue(GoGameShopClaimTypes.UserId);
 
                     if (String.IsNullOrEmpty(currentUserId))
                     {

@@ -16,7 +16,7 @@ public class BasketAuthorizationHandler
         CustomerBasket resource
     )
     {
-        var currentUserId = context.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var currentUserId = context.User.FindFirstValue(GoGameShopClaimTypes.UserId);
         if (String.IsNullOrEmpty(currentUserId))
         {
             return Task.CompletedTask;

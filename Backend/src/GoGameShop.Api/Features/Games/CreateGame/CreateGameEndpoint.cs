@@ -31,7 +31,7 @@ public static class CreateGameEndpoint
 
                     var currentUserId =
                         user?.FindFirstValue(JwtRegisteredClaimNames.Email)
-                        ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+                        ?? user?.FindFirstValue(GoGameShopClaimTypes.UserId);
 
                     if (String.IsNullOrEmpty(currentUserId))
                     {

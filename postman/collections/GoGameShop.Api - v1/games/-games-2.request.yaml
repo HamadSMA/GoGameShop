@@ -43,4 +43,13 @@ body:
         - /Users/hamadalaslani/Desktop/tings/holberton-project/imgs/sea-of-stars.png
       description: ""
       disabled: false
+auth:
+  type: oauth2
+  credentials:
+    grant_type: authorization_code_with_pkce
+    redirect_uri: https://oauth.pstmn.io/v1/callback
+    authUrl: https://dotnetprojectsdev.ciamlogin.com/fa7f808a-fe1d-4122-94b7-fd4ff4125521/oauth2/v2.0/authorize
+    accessTokenUrl: https://dotnetprojectsdev.ciamlogin.com/fa7f808a-fe1d-4122-94b7-fd4ff4125521/oauth2/v2.0/token
+    clientId: 495ea5b7-8d00-4a09-b2de-37c67e3ee2c6
+    scope: api://b91fcda7-ce81-45c8-bd48-edcaf5d025f8/gogameshop_api.all
 order: 1541944068016052
