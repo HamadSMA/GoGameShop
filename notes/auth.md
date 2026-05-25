@@ -236,7 +236,7 @@ The class body is empty because the rule has no parameters: either you own the b
 The method receives three things: the user context, the requirement, and the resource. Calling `context.Succeed(requirement)` grants access. Returning without calling it means the requirement was not satisfied; the framework treats silence as failure and returns `403 Forbidden`.
 
 ```csharp
-var currentUserId = context.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+var currentUserId = context.User.FindFirstValue(GoGameShopClaimTypes.UserId);
 if (String.IsNullOrEmpty(currentUserId))
 {
     return Task.CompletedTask; // silent failure → 403
@@ -248,9 +248,9 @@ if (Guid.Parse(currentUserId) == resource.Id || context.User.IsInRole(Roles.Admi
 return Task.CompletedTask;
 ```
 
-`FindFirstValue(JwtRegisteredClaimNames.Sub)` searches the token claims and returns the value of the `sub` claim (the user's unique ID) or `null` if the claim is absent.
+`FindFirstValue(GoGameShopClaimTypes.UserId)` searches the token claims and returns the value of the project-internal `userId` claim or `null` if the claim is absent. The `userId` claim is not a raw token claim from either Keycloak or Entra: it is added by the claims transformer for the active scheme, which copies `sub` (Keycloak) or `oid` (Entra) into a unified `userId` claim. Using it here keeps the handler provider-agnostic.
 
-The basket's `Id` equals the user's `sub` by design: when a basket is first created, it is assigned `Id = userId` where `userId` comes from the route. Since the route is the user's own ID (sourced from their token), the basket ID and the user ID are the same GUID.
+The basket's `Id` equals the user's identity by design: when a basket is first created, it is assigned `Id = userId` where `userId` comes from the route. Since the route is the user's own ID (sourced from their token), the basket ID and the user ID are the same GUID.
 
 ---
 ### `IAuthorizationService` — Imperative Authorization in an Endpoint
@@ -370,42 +370,61 @@ app.MapGet("/api/data", () => "ok")
 This is how one application hosts both cookie-authenticated pages and token-authenticated APIs: the default is cookies, but selected endpoints demand `"Bearer"`.
 
 **In this project (`Shared/Authorization/AuthorizationExtensions.cs`):**
-The API registers two JWT bearer schemes, an unnamed default plus a named `"Keycloak"` scheme, wrapped in an extension method so `Program.cs` stays a list of one-line composition calls.
+The API registers three JWT bearer schemes (an unnamed dev-only default, a named `"Keycloak"`, and a named `"Entra"`) plus a fourth **policy scheme** named `"KeycloakOrEntra"` that picks between Keycloak and Entra per request. The Keycloak schemes are wrapped in `IsDevelopment()` so production only accepts Entra tokens; Entra and the policy scheme are always registered.
 
 ```csharp
 public static IHostApplicationBuilder AddGoGameShopAuthentication(
     this IHostApplicationBuilder builder)
 {
-    builder.Services.AddSingleton<KeycloakClaimsTransformer>();
+    var authBuilder = builder.Services.AddAuthentication(Schemes.KeycloakOrEntra);
 
-    builder
-        .Services.AddAuthentication(Schemes.Keycloak)
-        .AddJwtBearer(options =>
-        {
-            options.MapInboundClaims = false;
-            options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
-        })
-        .AddJwtBearer(
-            Schemes.Keycloak,
-            options =>
+    if (builder.Environment.IsDevelopment())
+    {
+        builder.Services.AddSingleton<KeycloakClaimsTransformer>();
+        authBuilder
+            .AddJwtBearer(options =>
             {
                 options.MapInboundClaims = false;
-                options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+                options.TokenValidationParameters.RoleClaimType = GoGameShopClaimTypes.Role;
+            })
+            .AddJwtBearer(Schemes.Keycloak, options =>
+            {
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters.RoleClaimType = GoGameShopClaimTypes.Role;
                 options.RequireHttpsMetadata = false;
-                options.Events = new JwtBearerEvents()
+                options.Events = new JwtBearerEvents
                 {
                     OnTokenValidated = context =>
                     {
                         var transformer = context.HttpContext.RequestServices
                             .GetRequiredService<KeycloakClaimsTransformer>();
-
                         transformer.Transform(context);
-
                         return Task.CompletedTask;
                     }
                 };
+            });
+    }
+
+    builder.Services.AddSingleton<EntraClaimsTransformer>();
+    authBuilder.AddJwtBearer(Schemes.Entra, options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters.RoleClaimType = GoGameShopClaimTypes.Roles;
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var transformer = context.HttpContext.RequestServices
+                    .GetRequiredService<EntraClaimsTransformer>();
+                transformer.Transform(context);
+                return Task.CompletedTask;
             }
-        );
+        };
+    });
+
+    // Policy scheme that forwards to Keycloak or Entra per request (see next section)
+    authBuilder.AddPolicyScheme(Schemes.KeycloakOrEntra, Schemes.KeycloakOrEntra, options => { /* ... */ });
+
     return builder;
 }
 ```
@@ -418,11 +437,58 @@ builder.AddGoGameShopAuthorization();
 
 Line by line:
 
-- `AddAuthentication(Schemes.Keycloak)`: sets `"Keycloak"` as the default scheme for every operation. Endpoints not naming a scheme will be authenticated by the Keycloak handler.
-- `AddJwtBearer(options => ...)`: registers the **unnamed** JWT bearer scheme (under the default `"Bearer"` name). No `Authority` or `Audience`, so it acts as a generic fallback.
-- `AddJwtBearer(Schemes.Keycloak, options => ...)`: registers a **second** JWT bearer scheme under the `"Keycloak"` name with provider-specific settings. `Authority` and `Audience` are not hardcoded here; they are auto-bound from configuration (next section).
-- `RequireHttpsMetadata = false`: allows fetching the OIDC discovery document over HTTP, required for local Keycloak on `http://localhost:8080`. Never disable this in production.
-- `OnTokenValidated`: runs the `KeycloakClaimsTransformer` on every valid token to reshape the claims for this project (covered in the claims transformation section below).
+- `AddAuthentication(Schemes.KeycloakOrEntra)`: sets `"KeycloakOrEntra"` as the **default scheme**. Endpoints not naming a scheme go through this policy scheme, which then forwards to either Keycloak or Entra based on the token's issuer.
+- `if (IsDevelopment())`: Keycloak only exists locally; the production deployment uses Entra. Wrapping the Keycloak registrations in an environment check means production cannot accept Keycloak tokens at all (the scheme is not registered).
+- `AddJwtBearer(options => ...)` (no name): registers the **unnamed** JWT bearer scheme under the default `"Bearer"` name. No `Authority` or `Audience`, so it acts as a fallback for `dotnet user-jwts` tokens during development.
+- `AddJwtBearer(Schemes.Keycloak, ...)` / `AddJwtBearer(Schemes.Entra, ...)`: register one named scheme per real identity provider. `Authority` and `ValidAudience` are not hardcoded here; they are auto-bound from `Authentication:Schemes:{name}` in `appsettings.json` (next section).
+- `RoleClaimType = GoGameShopClaimTypes.Role` for Keycloak vs `GoGameShopClaimTypes.Roles` for Entra: each provider names the role claim differently (`role` singular vs `roles` plural), so each scheme is told the right name. After this, the same `RequireRole(Roles.Admin)` policy works for both because the framework reads from whichever claim the active scheme points it at.
+- `RequireHttpsMetadata = false` (Keycloak only): allows fetching the OIDC discovery document over HTTP for local Keycloak on `http://localhost:8080`. Entra is always HTTPS, so it does not need this. Never disable HTTPS metadata in production.
+- `OnTokenValidated`: runs the provider's claims transformer once per validated token. Both transformers share the helpers in `ClaimsExtensions` (covered in the claims transformation section below).
+
+---
+### Multi-Scheme Routing: `AddPolicyScheme` and `ForwardDefaultSelector`
+
+Once the API needs to accept tokens from **more than one identity provider**, each endpoint has to authenticate against the right one: a Keycloak token must hit the Keycloak handler (its signature is validated against the Keycloak JWKS), and an Entra token must hit the Entra handler. Statically setting one scheme as the default sends every request to that one handler, and a token from the other provider fails signature validation even though it is perfectly valid.
+
+A **policy scheme** is a virtual scheme that does not authenticate on its own. Its only job is to inspect the incoming request and **forward** the authentication operation to a real scheme. `ForwardDefaultSelector` is a delegate that runs per request, looks at whatever it wants (header, host, path, the JWT itself), and returns the name of the scheme to dispatch to. The actual handler then runs as if it had been the default all along.
+
+In this project, the selector reads the `Authorization: Bearer ...` header, peeks at the JWT's `iss` claim without validating it, and routes by issuer:
+
+```csharp
+authBuilder.AddPolicyScheme(
+    Schemes.KeycloakOrEntra,
+    Schemes.KeycloakOrEntra,
+    options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            string authorization = context.Request.Headers[HeaderNames.Authorization]!;
+
+            if (!string.IsNullOrEmpty(authorization) && authorization.StartsWith("Bearer "))
+            {
+                var token = authorization["Bearer ".Length..].Trim();
+                var jwtHandler = new JwtSecurityTokenHandler();
+
+                return jwtHandler.CanReadToken(token)
+                       && jwtHandler.ReadJwtToken(token).Issuer.Contains("ciamlogin.com")
+                    ? Schemes.Entra
+                    : Schemes.Keycloak;
+            }
+
+            return Schemes.Entra;
+        };
+    }
+);
+```
+
+Key points:
+
+- **Reading the issuer is safe even without validation.** `ReadJwtToken` parses the JSON payload but does **not** verify the signature. The real validation still happens inside the forwarded scheme, where the signature, audience, and expiry are all checked. The selector only uses `iss` as a routing hint.
+- **`ciamlogin.com`** is the External ID host that Entra puts in its issuer URL. If the token's `iss` contains it, the request is forwarded to the Entra scheme; otherwise it falls back to Keycloak (the local dev provider).
+- **The default when no `Authorization` header is present** is the Entra scheme. That sends unauthenticated callers through the Entra `Challenge`, returning a `401` and pointing them at the production identity provider rather than the local dev one.
+- **Per-endpoint scheme overrides still work.** The policy scheme is just the **default**; an endpoint that explicitly requires a specific scheme (`AuthenticationSchemes = "Keycloak"`) bypasses the selector entirely.
+
+Trade-off: the selector parses the JWT twice (once here for the issuer, once for real inside the chosen handler). For a learning project this is fine; in a hot path you would cache the parsed token in `HttpContext.Items` or write a smaller, allocation-free issuer extractor.
 
 ---
 ### Binding JWT Options from Configuration
@@ -469,33 +535,71 @@ Either pattern works, but only one should hold the "real" values to avoid confus
 The project currently duplicates the same keys in both files; pick one when adding a real production config.
 
 ---
-### Custom ClaimTypes Constant
+### `GoGameShopClaimTypes` Constants
 
-The JWT `role` and `scope` claim names are referenced in multiple places: `RoleClaimType` configuration, `RequireClaim(...)` calls in policies, the claims transformer, etc. Hardcoding `"role"` and `"scope"` everywhere is the same magic-string problem that `Roles` and `Policies` classes solved. Additionally, `System.Security.Claims.ClaimTypes` already exists in .NET and uses long URL-style claim names that don't match the short names in JWTs from external providers.
+The JWT claim names (`role`, `roles`, `scope`, the project-internal `userId`) are referenced in multiple places: `RoleClaimType` configuration, `RequireClaim(...)` calls in policies, the claims transformers, resource-based handlers. Hardcoding `"role"` and `"scope"` everywhere is the same magic-string problem that `Roles` and `Policies` classes solved. Additionally, `System.Security.Claims.ClaimTypes` already exists in .NET and uses long URL-style claim names that don't match the short names in JWTs from external providers, so a same-named project class would clash.
 
-A project-specific `ClaimTypes` class with `const string` fields holds the short JWT claim names used by the identity provider:
+The constants live in a project-specific `GoGameShopClaimTypes` class (deliberately *not* called `ClaimTypes`, to avoid colliding with `System.Security.Claims.ClaimTypes` in `using` statements):
 
 ```csharp
 namespace GoGameShop.Api.Shared.Authorization;
 
-public static class ClaimTypes
+public static class GoGameShopClaimTypes
 {
-    public const string Role = "role";
-
+    public const string Role = "role";    // Keycloak: singular
+    public const string Roles = "roles";  // Entra: plural — not a typo
     public const string Scope = "scope";
+    public const string UserId = "userId";
 }
 ```
 
-This shadows the framework's `System.Security.Claims.ClaimTypes`, which is intentional. The project uses short claim names (`role`, `sub`, `scope`) from the JWT spec, not the long Microsoft-style URLs.
+Why both `Role` and `Roles` exist (not a typo, deliberately): Keycloak emits roles under a single `role` claim (after the realm-roles mapper is reconfigured, see [notes/keycloak.md](keycloak.md)), while Entra emits them under a `roles` array claim. Each scheme registration sets `RoleClaimType` to the right one, and the same `RequireRole(Roles.Admin)` policy then works against either provider because the framework reads from whichever claim the active scheme points it at.
+
+`UserId` is a **project-internal** claim, not a claim that either Keycloak or Entra emits directly. The claims transformer for each scheme copies the provider-specific user-identity claim (`sub` for Keycloak, `oid` for Entra) into `userId`, so downstream code (`BasketAuthorizationHandler`, the games endpoints) reads one claim regardless of which provider issued the token. See the userId-claim section below for the why.
 
 ---
-### Claims Transformation — Splitting the `scope` Claim
+### Claims Transformation: Splitting the Scope Claim and Mapping UserId
 
-The OAuth 2.0 spec defines the `scope` claim as a **single space-separated string**: `"openid profile gogameshop_api.all"`. ASP.NET Core's `RequireClaim("scope", "gogameshop_api.all")` does an exact-match comparison against a claim's value, so it sees the whole string and never matches a single scope inside it. Authorization built on individual scopes breaks unless something splits the string into one claim per scope first.
+The OAuth 2.0 spec defines the `scope` claim as a **single space-separated string**: `"openid profile gogameshop_api.all"`. ASP.NET Core's `RequireClaim("scope", "gogameshop_api.all")` does an exact-match comparison against a claim's value, so it sees the whole string and never matches a single scope inside it. Authorization built on individual scopes breaks unless something splits the string into one claim per scope first. Both Keycloak and Entra emit scopes this way (Keycloak in a `scope` claim, Entra in `scp`), so the same problem appears for both providers.
 
-`KeycloakClaimsTransformer` is a small project-owned class with a `Transform(TokenValidatedContext)` method. It is invoked from `JwtBearerEvents.OnTokenValidated` once per token validation. It pulls the single `scope` claim off the principal, splits it on spaces, and re-adds one `scope` claim per individual scope. After it runs, `RequireClaim(ClaimTypes.Scope, "gogameshop_api.all")` matches as expected.
+Each scheme has its own claims transformer (`KeycloakClaimsTransformer`, `EntraClaimsTransformer`), invoked from `JwtBearerEvents.OnTokenValidated` once per token validation. The transformers share their work through a static `ClaimsExtensions` class that holds the actual split-and-rewrite logic, so the two transformers stay thin and the duplication problem from copy-pasting the splitter never appears.
 
-**In code (`Shared/Authorization/KeycloakClaimsTransformer.cs`):**
+**The shared helpers (`Shared/Authorization/ClaimsExtensions.cs`):**
+```csharp
+public static class ClaimsExtensions
+{
+    public static void TransformScopeClaim(this ClaimsIdentity? identity, string sourceScopeClaim)
+    {
+        var scopeClaim = identity?.FindFirst(sourceScopeClaim);
+        if (scopeClaim is null) return;
+
+        var scopes = scopeClaim.Value.Split(' ');
+        identity?.RemoveClaim(scopeClaim);
+        identity?.AddClaims(scopes.Select(s => new Claim(GoGameShopClaimTypes.Scope, s)));
+    }
+
+    public static void MapUserIdClaim(this ClaimsIdentity? identity, string sourceClaimType)
+    {
+        var sourceClaim = identity?.FindFirst(sourceClaimType);
+        if (sourceClaim is not null)
+        {
+            identity?.AddClaim(new Claim(GoGameShopClaimTypes.UserId, sourceClaim.Value));
+        }
+    }
+
+    public static void LogAllClaims(this ClaimsPrincipal? principal, ILogger logger)
+    {
+        foreach (var claim in principal?.Claims ?? [])
+        {
+            logger.LogTrace("Claim: {ClaimType}, Value: {ClaimValue}", claim.Type, claim.Value);
+        }
+    }
+}
+```
+
+`TransformScopeClaim` takes the *source* claim name as a parameter (`scope` for Keycloak, `scp` for Entra) and always writes the split values back under the unified `GoGameShopClaimTypes.Scope` name. After it runs, the principal has one claim per scope and `RequireClaim(Scope, "gogameshop_api.all")` matches as expected, regardless of which provider issued the token.
+
+**The per-provider transformers are now trivial:**
 ```csharp
 public class KeycloakClaimsTransformer(ILogger<KeycloakClaimsTransformer> logger)
 {
@@ -503,26 +607,54 @@ public class KeycloakClaimsTransformer(ILogger<KeycloakClaimsTransformer> logger
     {
         var identity = context.Principal?.Identity as ClaimsIdentity;
 
-        var scopeClaim = identity?.FindFirst(ClaimTypes.Scope);
-        if (scopeClaim is null)
-        {
-            return;
-        }
+        identity?.TransformScopeClaim(GoGameShopClaimTypes.Scope);     // Keycloak: scope -> scope
+        identity?.MapUserIdClaim(JwtRegisteredClaimNames.Sub);         // sub -> userId
 
-        var scopes = scopeClaim.Value.Split(' ');
-        identity?.RemoveClaim(scopeClaim);
-        identity?.AddClaims(scopes.Select(s => new Claim(ClaimTypes.Scope, s)));
+        context.Principal?.LogAllClaims(logger);
+    }
+}
 
-        foreach (var claim in context.Principal?.Claims ?? [])
-        {
-            logger.LogTrace("Claim: {ClaimType}, Value: {ClaimValue}",
-                claim.Type, claim.Value);
-        }
+public class EntraClaimsTransformer(ILogger<EntraClaimsTransformer> logger)
+{
+    private const string ScopeClaimType = "scp";
+    private const string OidClaimType   = "oid";
+
+    public void Transform(TokenValidatedContext context)
+    {
+        var identity = context.Principal?.Identity as ClaimsIdentity;
+
+        identity?.TransformScopeClaim(ScopeClaimType);                 // Entra: scp -> scope
+        identity?.MapUserIdClaim(OidClaimType);                        // oid -> userId
+
+        context.Principal?.LogAllClaims(logger);
     }
 }
 ```
 
-The class is registered as a singleton and resolved from the request's service provider inside `OnTokenValidated`, because event handlers don't get constructor injection. Claim logging is at `Trace` level so it stays off in normal runs and can be enabled via `appsettings.json` only when actively debugging an authorization failure.
+Each class is registered as a singleton and resolved from the request's service provider inside `OnTokenValidated`, because event handlers don't get constructor injection. Claim logging is at `Trace` level so it stays off in normal runs and can be enabled via `appsettings.json` only when actively debugging an authorization failure.
+
+---
+### Project-Internal `userId` Claim: Provider-Agnostic Identity
+
+Keycloak puts the user's stable per-tenant identity in `sub`. Entra puts the equivalent in `oid` (`sub` in Entra is a per-application pairwise pseudonym, different for the same user across different apps, so it cannot be used as the user's identity). If authorization code reads `sub` directly, it works for Keycloak but silently picks up the wrong (per-app, non-stable) value under Entra; if it reads `oid` directly, it breaks for Keycloak entirely. Conditionally checking the active scheme inside every handler would scatter that knowledge across the codebase.
+
+The fix is a small abstraction: each scheme's claims transformer copies the right source claim into a project-internal `userId` claim, and every authorization handler reads `userId`. The handler does not need to know which provider issued the token.
+
+**In each transformer:**
+```csharp
+// KeycloakClaimsTransformer
+identity?.MapUserIdClaim(JwtRegisteredClaimNames.Sub);
+
+// EntraClaimsTransformer
+identity?.MapUserIdClaim("oid");
+```
+
+**In the handler (`BasketAuthorizationHandler`) and the games endpoints:**
+```csharp
+var currentUserId = context.User.FindFirstValue(GoGameShopClaimTypes.UserId);
+```
+
+The same line works against either provider. Adding a third identity provider later means writing a third transformer that maps that provider's identity claim into `userId`; no handler or endpoint has to change.
 
 ---
 ### Why a Custom Class Instead of `IClaimsTransformer`
@@ -535,10 +667,10 @@ The custom class wins here for several reasons:
 
 - **Runs once, not per request.** `OnTokenValidated` fires when the JWT middleware first builds the `ClaimsPrincipal` from the token. After that, the same principal is reused for the lifetime of the authentication; no further work is needed on subsequent requests.
 - **No idempotency burden.** Because it runs exactly once per token, the splitter doesn't have to detect and skip its own previous output.
-- **Scoped to the Keycloak scheme.** `Events` is set on the named `Schemes.Keycloak` JWT bearer registration, so the transformation only applies to tokens from that scheme. An `IClaimsTransformer` is global; it runs against every authenticated principal regardless of scheme.
+- **Scoped per scheme.** `Events` is set on each named JWT bearer registration (`Schemes.Keycloak` and `Schemes.Entra`), so each transformation only applies to tokens from its own provider. An `IClaimsTransformer` is global; it runs against every authenticated principal regardless of scheme, which would force the Keycloak splitter to also handle Entra's `scp` shape (or vice versa) in one tangled class.
 - **Plain class, plain DI.** It's just a class with a `Transform` method. No interface contract, no `ClaimsPrincipal` cloning that `IClaimsTransformer` implementations are expected to do, no ceremony.
 
-The naming is deliberate: `KeycloakClaimsTransformer` describes the *purpose*, not the framework interface it implements. It deliberately does not implement `IClaimsTransformer`.
+The naming is deliberate: `KeycloakClaimsTransformer` and `EntraClaimsTransformer` describe the *purpose*, not the framework interface. They deliberately do not implement `IClaimsTransformer`.
 
 ---
 ### Applying Policies to Endpoints

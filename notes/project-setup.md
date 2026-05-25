@@ -632,7 +632,7 @@ GoGameShop/
 │   │       │   ├── GoGameShopContext.cs  # EF Core DbContext
 │   │       │   └── GoGameShopData.cs     # Hardcoded sample data (commented out, kept for reference)
 │   │       ├── Shared/                   # Cross-cutting concerns
-│   │       │   ├── Authorization/        # Policies, Roles, ClaimTypes, Schemes, AuthorizationExtensions, KeycloakClaimsTransformer
+│   │       │   ├── Authorization/        # Policies, Roles, Schemes, GoGameShopClaimTypes, AuthorizationExtensions, ClaimsExtensions, KeycloakClaimsTransformer, EntraClaimsTransformer
 │   │       │   ├── ErrorHandling/        # GlobalErrorHandler (IExceptionHandler)
 │   │       │   ├── FileUpload/           # FileUploader service and FileUploadResult
 │   │       │   └── Timing/               # RequestTimingMiddleware (kept for reference)
@@ -707,13 +707,13 @@ GoGameShop/
 "http": {
     "applicationUrl": "http://localhost:5002",
     "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Production"
+        "ASPNETCORE_ENVIRONMENT": "Development"
     }
 }
 ```
 
-Both profiles run with `ASPNETCORE_ENVIRONMENT` set to `"Production"`, which means `appsettings.json` is the only config file loaded (no `appsettings.Development.json` override), and the production exception handler is active instead of the developer error page. The `http` profile binds to port 5002 for local development.
+Both profiles run with `ASPNETCORE_ENVIRONMENT` set to `"Development"`, which means `appsettings.Development.json` overrides `appsettings.json`, the developer error page is active, and code gated on `builder.Environment.IsDevelopment()` is wired in. The `http` profile binds to port 5002 for local development.
 
-The environment is set to `Production` locally so that the local run behaves as close to the Azure deployment as possible — any config that only applies in `Development` would be invisible in Azure, making it easy to miss issues until after deployment.
+The environment is `Development` locally so that the Keycloak JWT bearer scheme (registered only inside an `IsDevelopment()` block in `AuthorizationExtensions`) is available. Running locally with `Production` deregisters Keycloak and leaves only the Entra scheme, which then rejects every Keycloak token Postman holds. The earlier project default of `Production` made sense when only Keycloak was wired up; once Entra became the production identity provider and Keycloak became dev-only, the local launch profile had to flip to `Development` to keep the local Keycloak path alive.
 
 ---

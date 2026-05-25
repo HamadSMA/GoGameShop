@@ -86,7 +86,7 @@ SSR app that serves the storefront — listings, game detail, basket, and Keyclo
    *Note: The application calls `InitializeDbAsync()` on startup, which automatically applies migrations and seeds
    initial data (9 genres, 3 ratings, and 20 games). To reseed, delete `GoGameShop.db` and restart the API.*
 
-4. **Start Keycloak (local IAM server):**
+4. **Start Keycloak (local IAM server, development only):**
    ```bash
    cd Backend/localinfra
    docker compose up -d
@@ -94,6 +94,9 @@ SSR app that serves the storefront — listings, game detail, basket, and Keyclo
    The Keycloak admin console is available at `http://localhost:8080` (bootstrap credentials: `admin` / `admin`). The
    committed `gogameshop-realm.json` can be imported via *Realm settings → Action → Partial import* to restore the realm,
    roles, and clients (including `gogameshop-api`, `gogameshop-frontend`, and `postman`).
+
+   Keycloak is only registered as a JWT bearer scheme when `ASPNETCORE_ENVIRONMENT=Development`. The deployed API
+   (`Production`) accepts only Microsoft Entra tokens; see the `Authentication:Schemes:Entra` section below.
 
 5. **Run the API:**
    ```bash
@@ -124,9 +127,17 @@ Configuration is managed via `appsettings.json` and `appsettings.Development.jso
   `Data Source=GoGameShop.db`).
 - **Logging:** Log levels are configured per namespace. EF Core SQL command logging is set to `Warning` in development
   to suppress verbose query output.
-- **Authentication:Schemes:Keycloak:** JWT bearer options for the named `Keycloak` scheme. `Authority` is the Keycloak
-  realm URL and `ValidAudience` is the expected `aud` claim (the Keycloak client ID). .NET 8+ binds these onto
-  `JwtBearerOptions` automatically — no `builder.Configuration.Bind(...)` glue needed.
+- **Authentication:Schemes:Keycloak:** JWT bearer options for the named `Keycloak` scheme (registered only in
+  `Development`). `Authority` is the Keycloak realm URL and `ValidAudience` is the expected `aud` claim (the Keycloak
+  client ID). .NET 8+ binds these onto `JwtBearerOptions` automatically, no `builder.Configuration.Bind(...)` glue
+  needed.
+- **Authentication:Schemes:Entra:** JWT bearer options for the named `Entra` scheme (registered in all environments).
+  `Authority` is the External ID tenant issuer URL (`https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0`) and
+  `ValidAudience` is the API application's client ID GUID (matches the token's `aud` claim). Same auto-binding rules
+  apply.
+- **Multi-scheme selection:** the default scheme is `KeycloakOrEntra`, a policy scheme that inspects each incoming
+  token's `iss` claim and forwards to either the Keycloak or Entra handler. Tokens whose issuer host contains
+  `ciamlogin.com` go to Entra; everything else goes to Keycloak.
 
 ### Frontend (`Frontend/src/GoGameShop.Frontend/appsettings.json`)
 
